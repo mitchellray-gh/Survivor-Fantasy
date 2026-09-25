@@ -1,0 +1,35 @@
+.header {
+  background: linear-gradient(135deg, #0a1929 0%, #1a3a5f 100%);
+  color: #4ade80;
+  padding: 1rem 0;
+  border-bottom: 2px solid #4ade80;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.header-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.title {
+  margin: 0;
+  font-family: 'Arial Black', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-size: 1.8rem;
+}
+
+@media (max-width: 768px) {
+  .header-content {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .title {
+    font-size: 1.5rem;
+  }
+}

@@ -1,0 +1,181 @@
+.app {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0a1929 0%, #1a3a5f 100%);
+  color: #e0e0e0;
+}
+
+.main-content {
+  padding: 20px 0;
+}
+
+.content-wrapper {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid #4ade80;
+  padding-bottom: 1rem;
+}
+
+.tab-button {
+  background: transparent;
+  color: #e0e0e0;
+  border: 1px solid #4ade80;
+  padding: 10px 20px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.tab-button:hover {
+  background: #4ade80;
+  color: #0a1929;
+}
+
+.tab-button.active {
+  background: #4ade80;
+  color: #0a1929;
+  font-weight: bold;
+}
+
+.dashboard-content, .players-content, .teams-content, .scoring-content {
+  margin-top: 2rem;
+}
+
+.players-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+  margin-top: 1rem;
+}
+
+/* Standings table on the Dashboard */
+.standings-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  background: #12233a;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.standings-table th, .standings-table td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid #1f3a5c;
+}
+.standings-table th {
+  background: #0f1f33;
+  color: #8fbadf;
+  font-weight: 600;
+}
+.standings-table td.pts { color: #ffd166; font-weight: 700; text-align: right; }
+
+/* Rules grid on the Dashboard */
+.rules-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  margin-top: 1rem;
+}
+.rule-group {
+  background: #12233a;
+  border: 1px solid #1f3a5c;
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+.rule-group h4 {
+  margin: 0 0 8px;
+  color: #a5d8ff;
+  border-bottom: 1px solid #1f3a5c;
+  padding-bottom: 6px;
+}
+.rule-group ul { list-style: none; padding: 0; margin: 0; }
+.rule-group li { padding: 4px 0; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.pts-badge {
+  display: inline-block;
+  min-width: 34px;
+  text-align: center;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 12px;
+}
+.pts-badge.pos { background: #1e5b3a; color: #b5f2c8; }
+.pts-badge.neg { background: #5b1e1e; color: #f2b5b5; }
+
+/* Team sections */
+.team-section { margin-bottom: 2.5rem; }
+.team-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 1px solid #4ade80;
+  padding-bottom: 6px;
+  margin-bottom: 1rem;
+}
+.team-header h3 { margin: 0; color: #4ade80; }
+.team-header .team-meta { color: #a5d8ff; font-size: 14px; }
+.team-header .team-meta strong { color: #ffd166; }
+
+/* Scoring table */
+.episode-picker { margin: 1rem 0; display: inline-flex; align-items: center; gap: 8px; }
+.episode-picker input {
+  width: 70px;
+  padding: 6px 8px;
+  background: #0f1f33;
+  color: #e0e0e0;
+  border: 1px solid #1f3a5c;
+  border-radius: 4px;
+}
+.scoring-table-wrapper { overflow-x: auto; margin-top: 1rem; }
+.scoring-table {
+  border-collapse: collapse;
+  background: #12233a;
+  min-width: 100%;
+  font-size: 13px;
+}
+.scoring-table th, .scoring-table td {
+  padding: 8px 6px;
+  border-bottom: 1px solid #1f3a5c;
+  border-right: 1px solid #1f3a5c;
+  text-align: center;
+  vertical-align: middle;
+}
+.scoring-table th {
+  background: #0f1f33;
+  color: #8fbadf;
+  font-weight: 600;
+  min-width: 70px;
+  max-width: 100px;
+}
+.scoring-table th .cat-label { font-size: 11px; line-height: 1.3; }
+.scoring-table th .cat-pts { margin-top: 4px; font-size: 12px; font-weight: 700; }
+.scoring-table th .cat-pts.pos { color: #b5f2c8; }
+.scoring-table th .cat-pts.neg { color: #f2b5b5; }
+.scoring-table .sticky-col {
+  position: sticky;
+  left: 0;
+  background: #12233a;
+  text-align: left;
+  z-index: 1;
+  min-width: 180px;
+}
+.scoring-table thead .sticky-col { background: #0f1f33; }
+.scoring-table .scoring-player-cell { display: flex; align-items: center; gap: 8px; }
+.scoring-table .scoring-player-cell img {
+  width: 36px; height: 36px; border-radius: 50%; object-fit: cover;
+}
+.scoring-table .scoring-player-cell small { color: #a5d8ff; font-size: 11px; }
+.scoring-table td.pts { color: #ffd166; font-weight: 700; }
+.scoring-table td.pts.neg { color: #f2b5b5; }
+.scoring-table tr.row-voted-out { opacity: 0.55; }
+
+@media (max-width: 768px) {
+  .tabs { flex-direction: column; }
+  .players-grid { grid-template-columns: 1fr; }
+}
