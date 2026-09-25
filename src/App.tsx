@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Header from './components/Header'
 import PlayerCard from './components/PlayerCard'
 import ScoringTab from './components/ScoringTab'
@@ -11,7 +11,15 @@ const GROUPS = ['Survival','Challenge','Advantage','Social & Drama'] as const
 function App() {
   const [service] = useState(() => new PlayerService())
   const [version, setVersion] = useState(0)
+  const [hydrated, setHydrated] = useState(false)
   const bump = () => setVersion(v => v + 1)
+
+  // Load persisted state (localStorage or /api/league) once on mount.
+  useEffect(() => {
+    let cancelled = false
+    void service.hydrate().finally(() => { if (!cancelled) { setHydrated(true); bump() } })
+    return () => { cancelled = true }
+  }, [service])
   const [activeTab, setActiveTab] = useState<TabId>('dashboard')
   const [scoringEpisode, setScoringEpisode] = useState(1)
 
@@ -44,6 +52,9 @@ function App() {
             <button className={`tab-button ${activeTab === 'players' ? 'active' : ''}`} onClick={() => setActiveTab('players')}>Players ({players.length})</button>
             <button className={`tab-button ${activeTab === 'teams' ? 'active' : ''}`} onClick={() => setActiveTab('teams')}>Teams ({managers.length})</button>
             <button className={`tab-button ${activeTab === 'scoring' ? 'active' : ''}`} onClick={() => setActiveTab('scoring')}>Scoring</button>
+            <span className={`storage-badge ${service.isRemote() ? 'remote' : 'local'}`} title={service.isRemote() ? 'Shared league database' : 'Local to this browser only'}>
+              {!hydrated ? 'Loading\u2026' : service.isRemote() ? 'Shared \u2022 synced' : 'Local only'}
+            </span>
           </div>
 
           {activeTab === 'dashboard' && (

@@ -6,65 +6,101 @@ import {
   type ScoringCategory,
   type ScoringCategoryId,
 } from './scoringRules'
+import {
+  createBackend,
+  EMPTY_STATE,
+  StorageConflictError,
+  type LeagueState,
+  type StorageBackend,
+} from './storage'
 
 export type { Player, EpisodeScore, ScoringCategory, ScoringCategoryId }
+export { StorageConflictError }
 
 export interface Manager {
   name: string
   players: Player[]
 }
 
-const STORAGE_KEY = 'survivor_fantasy_state_v1'
-
-interface PersistedState {
-  votedOut: number[]
-  scores: EpisodeScore[]
-}
-
-function loadState(): PersistedState {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return { votedOut: [], scores: [] }
-    const parsed = JSON.parse(raw) as PersistedState
-    return {
-      votedOut: Array.isArray(parsed.votedOut) ? parsed.votedOut : [],
-      scores: Array.isArray(parsed.scores) ? parsed.scores : [],
-    }
-  } catch {
-    return { votedOut: [], scores: [] }
-  }
-}
-
-function saveState(state: PersistedState): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
-  } catch {
-    // ignore quota / private mode
-  }
-}
-
 /**
  * PlayerService is the single source of truth in the app. It hydrates the
- * static roster from players.ts, applies persisted vote-out / scoring state
- * from localStorage, and exposes helpers for the UI.
+ * static roster from players.ts and applies mutable vote-out / scoring
+ * state loaded through a StorageBackend (localStorage or /api/league).
+ *
+ * All mutations are optimistic locally; a debounced commit() persists to
+ * the backend and re-syncs the local `version` on success.
  */
 export class PlayerService {
   private players: Player[]
   private scores: EpisodeScore[]
+  private version = 0
+  private commitTimer: ReturnType<typeof setTimeout> | null = null
+  private commitPromise: Promise<void> | null = null
 
-  constructor() {
-    const persisted = loadState()
-    // Clone so we do not mutate the frozen import.
-    this.players = PLAYERS.map(p => ({ ...p, votedOut: persisted.votedOut.includes(p.id) }))
-    this.scores = persisted.scores
+  constructor(private readonly backend: StorageBackend = createBackend()) {
+    // Start with an empty state; UI should call hydrate() before rendering.
+    this.players = PLAYERS.map(p => ({ ...p, votedOut: false }))
+    this.scores = []
   }
 
-  private persist(): void {
-    saveState({
+  /** Load persisted state from the backend and merge it into the roster. */
+  async hydrate(): Promise<void> {
+    let state: LeagueState
+    try { state = await this.backend.load() }
+    catch { state = { ...EMPTY_STATE } }
+    this.applyState(state)
+  }
+
+  private applyState(state: LeagueState): void {
+    const votedSet = new Set(state.votedOut)
+    for (const p of this.players) p.votedOut = votedSet.has(p.id)
+    this.scores = state.scores as EpisodeScore[]
+    this.version = state.version
+  }
+
+  private snapshot(): LeagueState {
+    return {
       votedOut: this.players.filter(p => p.votedOut).map(p => p.id),
       scores: this.scores,
-    })
+      version: this.version,
+    }
   }
+
+  /**
+   * Queue a commit to the backend. Multiple rapid mutations coalesce into
+   * one write so a user clicking 5 checkboxes in a row only triggers one
+   * network round-trip.
+   */
+  private persist(): void {
+    if (this.commitTimer) clearTimeout(this.commitTimer)
+    this.commitTimer = setTimeout(() => { void this.commit() }, 250)
+  }
+
+  /** Flush any pending writes immediately. Safe to call multiple times. */
+  async commit(): Promise<void> {
+    if (this.commitTimer) { clearTimeout(this.commitTimer); this.commitTimer = null }
+    if (this.commitPromise) return this.commitPromise
+    this.commitPromise = (async () => {
+      try {
+        const next = await this.backend.save(this.snapshot())
+        this.version = next.version
+      } catch (err) {
+        if (err instanceof StorageConflictError) {
+          // Someone else wrote first. Reload their state (we lose our
+          // pending change; the UI can prompt the user to redo it).
+          await this.hydrate()
+        } else {
+          console.error('[PlayerService] commit failed:', err)
+        }
+      } finally {
+        this.commitPromise = null
+      }
+    })()
+    return this.commitPromise
+  }
+
+  /** True when the app is talking to a shared server, false for local-only. */
+  isRemote(): boolean { return this.backend.kind === 'remote' }
 
   getPlayers(): Player[] {
     return this.players

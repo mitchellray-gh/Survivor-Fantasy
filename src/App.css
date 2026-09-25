@@ -16,10 +16,12 @@
 
 .tabs {
   display: flex;
+  align-items: center;
   gap: 10px;
   margin-bottom: 2rem;
   border-bottom: 1px solid #4ade80;
   padding-bottom: 1rem;
+  flex-wrap: wrap;
 }
 
 .tab-button {
@@ -42,6 +44,19 @@
   color: #0a1929;
   font-weight: bold;
 }
+
+.storage-badge {
+  margin-left: auto;
+  align-self: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  border: 1px solid transparent;
+}
+.storage-badge.remote { background: #1e5b3a; color: #b5f2c8; border-color: #2f7d54; }
+.storage-badge.local  { background: #3a2c1e; color: #f2d1a5; border-color: #7d5a2f; }
 
 .dashboard-content, .players-content, .teams-content, .scoring-content {
   margin-top: 2rem;
