@@ -11,5 +11,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["api"]
+  "include": ["api", "src/data/players.ts", "src/data/scoringRules.ts"]
 }

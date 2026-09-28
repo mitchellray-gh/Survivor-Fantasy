@@ -2,6 +2,8 @@
 // Draft assignments come from playersdrafted.txt.
 // This is the single source of truth for player data.
 
+export type PlayerStatus = 'active' | 'voted_out' | 'medevac' | 'quit' | 'winner'
+
 export interface Player {
   id: number
   name: string
@@ -12,7 +14,8 @@ export interface Player {
   aboutMe: string
   photo: string          // path served by Vite from /public
   managerName: string    // who drafted this castaway (from playersdrafted.txt)
-  votedOut: boolean
+  votedOut: boolean      // convenience: true when status is anything except 'active'/'winner'
+  status?: PlayerStatus  // populated after PlayerService.hydrate()
 }
 
 export const PLAYERS: Player[] = [

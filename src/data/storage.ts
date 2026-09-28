@@ -1,95 +1,203 @@
-// Storage adapter for the mutable "league state" (vote-outs + per-episode scoring).
+// Storage adapter for the mutable league state.
 //
 // Two backends implement the same interface:
 //
-//   1. LocalStorageBackend  - always works, no server needed. Per-browser only.
-//   2. RemoteBackend        - talks to /api/league (Vercel serverless + Vercel KV).
-//                             Enabled by setting VITE_USE_REMOTE=1 at build time.
+//   1. LocalStorageBackend  - offline fallback (npm run dev with no DB).
+//   2. RemoteBackend        - talks to Vercel Postgres via /api/*
 //
-// The whole "current league state" is a single small JSON blob, so both backends
-// are just get() and put(). Optimistic concurrency uses a monotonically
-// increasing `version` field managed by the server.
+// The remote backend now uses a *relational* model: one GET /api/state hydrate
+// followed by per-mutation POSTs (/api/events, /api/players, /api/overrides,
+// /api/predictions). No single-blob PUT, no optimistic-concurrency version.
+// If two people write at once the last write wins, which is fine for a
+// tiny league with a single commissioner.
 
 import type { ScoringCategoryId } from './scoringRules'
 
-export interface EpisodeScoreDto {
+export type PlayerStatus = 'active' | 'voted_out' | 'medevac' | 'quit' | 'winner'
+
+// Snapshot shape shared by both backends. It mirrors the /api/state JSON.
+export interface StatePlayer {
+  id: number
+  name: string
+  age: number | null
+  hometown: string | null
+  residence: string | null
+  occupation: string | null
+  aboutMe: string | null
+  photo: string | null
+  managerName: string | null
+  status: PlayerStatus
+}
+
+export interface StateEvent {
   playerId: number
   episode: number
-  events: Partial<Record<ScoringCategoryId, number>>
+  categoryId: ScoringCategoryId
+  count: number
 }
 
-export interface LeagueState {
-  votedOut: number[]
-  scores: EpisodeScoreDto[]
-  version: number   // bumped by the server on every write
+export interface StateOverride {
+  playerId: number
+  episode: number
+  delta: number
+  reason: string | null
 }
 
-export const EMPTY_STATE: LeagueState = { votedOut: [], scores: [], version: 0 }
+export interface StatePrediction {
+  manager: string
+  episode: number
+  categoryId: ScoringCategoryId
+  targetPlayerId: number | null
+  locked: boolean
+}
+
+export interface StateSnapshot {
+  players: StatePlayer[]   // may be empty on local backend; caller falls back to static
+  events: StateEvent[]
+  overrides: StateOverride[]
+  predictions: StatePrediction[]
+  meta: Record<string, string>
+}
+
+export const EMPTY_SNAPSHOT: StateSnapshot = {
+  players: [], events: [], overrides: [], predictions: [], meta: {},
+}
 
 export interface StorageBackend {
   readonly kind: 'local' | 'remote'
-  load(): Promise<LeagueState>
-  save(state: LeagueState): Promise<LeagueState>  // returns state with new version
+  load(): Promise<StateSnapshot>
+  setEvent(e: StateEvent): Promise<void>
+  setPlayerStatus(playerId: number, status: PlayerStatus): Promise<void>
+  setPlayerManager(playerId: number, managerName: string | null): Promise<void>
+  setOverride(o: StateOverride): Promise<void>
+  setPrediction(p: StatePrediction): Promise<void>
 }
 
-// ---- LocalStorage ----------------------------------------------------------
+// ---- LocalStorage backend --------------------------------------------------
+// A single JSON blob under one key. players[] stays empty; the service will
+// merge these mutations onto the static PLAYERS[] roster from players.ts.
 
-const LOCAL_KEY = 'survivor_fantasy_state_v1'
+const LOCAL_KEY = 'survivor_fantasy_state_v2'
 
 export class LocalStorageBackend implements StorageBackend {
   readonly kind = 'local' as const
 
-  async load(): Promise<LeagueState> {
+  private read(): StateSnapshot {
     try {
       const raw = localStorage.getItem(LOCAL_KEY)
-      if (!raw) return { ...EMPTY_STATE }
-      const parsed = JSON.parse(raw) as Partial<LeagueState>
+      if (!raw) return { ...EMPTY_SNAPSHOT }
+      const parsed = JSON.parse(raw) as Partial<StateSnapshot>
       return {
-        votedOut: Array.isArray(parsed.votedOut) ? parsed.votedOut : [],
-        scores: Array.isArray(parsed.scores) ? parsed.scores : [],
-        version: typeof parsed.version === 'number' ? parsed.version : 0,
+        players:     Array.isArray(parsed.players)     ? parsed.players     : [],
+        events:      Array.isArray(parsed.events)      ? parsed.events      : [],
+        overrides:   Array.isArray(parsed.overrides)   ? parsed.overrides   : [],
+        predictions: Array.isArray(parsed.predictions) ? parsed.predictions : [],
+        meta:        (parsed.meta && typeof parsed.meta === 'object') ? parsed.meta as Record<string,string> : {},
       }
     } catch {
-      return { ...EMPTY_STATE }
+      return { ...EMPTY_SNAPSHOT }
     }
   }
 
-  async save(state: LeagueState): Promise<LeagueState> {
-    const next = { ...state, version: state.version + 1 }
-    try { localStorage.setItem(LOCAL_KEY, JSON.stringify(next)) } catch { /* ignore */ }
-    return next
+  private write(s: StateSnapshot): void {
+    try { localStorage.setItem(LOCAL_KEY, JSON.stringify(s)) } catch { /* ignore quota */ }
+  }
+
+  async load(): Promise<StateSnapshot> { return this.read() }
+
+  async setEvent(e: StateEvent): Promise<void> {
+    const s = this.read()
+    s.events = s.events.filter(x => !(x.playerId === e.playerId && x.episode === e.episode && x.categoryId === e.categoryId))
+    if (e.count > 0) s.events.push({ ...e })
+    this.write(s)
+  }
+
+  async setPlayerStatus(playerId: number, status: PlayerStatus): Promise<void> {
+    const s = this.read()
+    let found = false
+    s.players = s.players.map(p => {
+      if (p.id !== playerId) return p
+      found = true
+      return { ...p, status }
+    })
+    if (!found) {
+      // Placeholder row that carries just id+status; the service overlays it.
+      s.players.push({
+        id: playerId, name: '', age: null, hometown: null, residence: null,
+        occupation: null, aboutMe: null, photo: null, managerName: null, status,
+      })
+    }
+    this.write(s)
+  }
+
+  async setPlayerManager(playerId: number, managerName: string | null): Promise<void> {
+    const s = this.read()
+    let found = false
+    s.players = s.players.map(p => {
+      if (p.id !== playerId) return p
+      found = true
+      return { ...p, managerName }
+    })
+    if (!found) {
+      s.players.push({
+        id: playerId, name: '', age: null, hometown: null, residence: null,
+        occupation: null, aboutMe: null, photo: null, managerName, status: 'active',
+      })
+    }
+    this.write(s)
+  }
+
+  async setOverride(o: StateOverride): Promise<void> {
+    const s = this.read()
+    s.overrides = s.overrides.filter(x => !(x.playerId === o.playerId && x.episode === o.episode))
+    if (o.delta !== 0) s.overrides.push({ ...o })
+    this.write(s)
+  }
+
+  async setPrediction(p: StatePrediction): Promise<void> {
+    const s = this.read()
+    s.predictions = s.predictions.filter(x => !(x.manager === p.manager && x.episode === p.episode && x.categoryId === p.categoryId))
+    if (p.targetPlayerId !== null) s.predictions.push({ ...p })
+    this.write(s)
   }
 }
 
-// ---- Remote (/api/league backed by Vercel KV) ------------------------------
+// ---- Remote backend (Vercel Postgres via /api/*) ---------------------------
+
+async function postJson(url: string, body: unknown): Promise<void> {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(`POST ${url} failed: ${res.status} ${text}`)
+  }
+}
 
 export class RemoteBackend implements StorageBackend {
   readonly kind = 'remote' as const
-  constructor(private readonly baseUrl: string = '/api/league') {}
+  constructor(private readonly baseUrl: string = '/api') {}
 
-  async load(): Promise<LeagueState> {
-    const res = await fetch(this.baseUrl, { headers: { accept: 'application/json' } })
-    if (!res.ok) throw new Error(`GET ${this.baseUrl} failed: ${res.status}`)
-    return (await res.json()) as LeagueState
-  }
-
-  async save(state: LeagueState): Promise<LeagueState> {
-    const res = await fetch(this.baseUrl, {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(state),
-    })
-    if (res.status === 409) {
-      // Conflict: someone else wrote first. Caller should reload and retry.
-      throw new StorageConflictError()
+  async load(): Promise<StateSnapshot> {
+    const res = await fetch(`${this.baseUrl}/state`, { headers: { accept: 'application/json' } })
+    if (!res.ok) throw new Error(`GET /state failed: ${res.status}`)
+    const raw = (await res.json()) as any
+    return {
+      players:     Array.isArray(raw.players)     ? raw.players     : [],
+      events:      Array.isArray(raw.events)      ? raw.events      : [],
+      overrides:   Array.isArray(raw.overrides)   ? raw.overrides   : [],
+      predictions: Array.isArray(raw.predictions) ? raw.predictions : [],
+      meta:        (raw.meta && typeof raw.meta === 'object') ? raw.meta : {},
     }
-    if (!res.ok) throw new Error(`PUT ${this.baseUrl} failed: ${res.status}`)
-    return (await res.json()) as LeagueState
   }
-}
 
-export class StorageConflictError extends Error {
-  constructor() { super('League state was updated by someone else. Reload to see the latest.') }
+  setEvent(e: StateEvent):                                             Promise<void> { return postJson(`${this.baseUrl}/events`, e) }
+  setPlayerStatus(id: number, status: PlayerStatus):                   Promise<void> { return postJson(`${this.baseUrl}/players`, { id, status }) }
+  setPlayerManager(id: number, managerName: string | null):            Promise<void> { return postJson(`${this.baseUrl}/players`, { id, managerName }) }
+  setOverride(o: StateOverride):                                       Promise<void> { return postJson(`${this.baseUrl}/overrides`, o) }
+  setPrediction(p: StatePrediction):                                   Promise<void> { return postJson(`${this.baseUrl}/predictions`, p) }
 }
 
 // ---- Backend selection -----------------------------------------------------
@@ -103,3 +211,5 @@ export function createBackend(): StorageBackend {
   const useRemote = (import.meta as any).env?.VITE_USE_REMOTE === '1'
   return useRemote ? new RemoteBackend() : new LocalStorageBackend()
 }
+
+

@@ -40,53 +40,76 @@ Then open http://localhost:5173/ (or whatever port Vite prints).
 
 ## Persistence &mdash; two backends, same API
 
-The app persists league state (vote-outs + per-episode scoring events)
-behind a `StorageBackend` interface in `src/data/storage.ts`. There are two
-implementations and the app picks between them at build time:
+The app persists league state (player status, per-episode scoring events,
+commissioner overrides, weekly predictions) behind a `StorageBackend`
+interface in `src/data/storage.ts`. There are two implementations and the
+app picks between them at build time:
 
-| Backend            | When it's used                                   | Where the data lives                      |
-|--------------------|--------------------------------------------------|-------------------------------------------|
-| `LocalStorageBackend` | `VITE_USE_REMOTE` is unset (the default)      | Browser `localStorage` (per-device)       |
-| `RemoteBackend`    | `VITE_USE_REMOTE=1` at build time                | Vercel KV via `/api/league` (shared)      |
+| Backend               | When it's used                       | Where the data lives                              |
+|-----------------------|--------------------------------------|---------------------------------------------------|
+| `LocalStorageBackend` | `VITE_USE_REMOTE` is unset (default) | Browser `localStorage` (per-device)               |
+| `RemoteBackend`       | `VITE_USE_REMOTE=1` at build time    | Vercel Postgres (Neon) via `/api/*` (shared)      |
 
-Rapid clicks are debounced (250 ms) into a single write so ticking 15
-checkboxes results in one round-trip, not 15. Writes use optimistic
-concurrency: the client sends the version it started from, the server
-rejects with `409` if someone else got there first, and the client
-auto-reloads the fresh state.
+Every mutation is a single POST to a purpose-built endpoint
+(`/api/events`, `/api/players`, `/api/overrides`, `/api/predictions`),
+which upserts one row. Reads happen once on load via `GET /api/state`.
+
+### Serverless API surface
+
+| Endpoint                        | Method | Body                                                         | What it does                             |
+|---------------------------------|--------|--------------------------------------------------------------|------------------------------------------|
+| `/api/state`                    | GET    | &mdash;                                                      | Full league state as JSON.               |
+| `/api/events`                   | POST   | `{playerId, episode, categoryId, count}`                     | Upsert one scoring event (count=0 deletes). |
+| `/api/players`                  | POST   | `{id, status?, managerName?}`                                | Update player status / manager.          |
+| `/api/overrides`                | POST   | `{playerId, episode, delta, reason?}`                        | Set commissioner adjustment (delta=0 deletes). |
+| `/api/predictions`              | POST   | `{manager, episode, categoryId, targetPlayerId?}`            | Save a pre-episode prediction.           |
+| `/api/admin/init`               | POST   | &mdash;                                                      | Create schema and seed players/managers/categories. Idempotent. |
+| `/api/admin/migrate-from-kv`    | POST   | &mdash;                                                      | One-shot copy of the old Upstash blob into Postgres. |
 
 ## Deploying to Vercel
 
 1. **Push to GitHub** (already done for this repo).
-2. In the Vercel dashboard: **Add New Project** &rarr; import
-   `mitchellray-gh/Survivor-Fantasy`. Framework preset auto-detects as
-   Vite.
-3. **Add a Redis store**: Project &rarr; Storage &rarr; **Marketplace**
-   &rarr; add **Upstash Redis** (free tier: 10k commands/day, 256 MB).
-   Connect it to this project. Vercel auto-populates
-   `KV_REST_API_URL` / `KV_REST_API_TOKEN` (or, if you installed the
-   Upstash integration directly, `UPSTASH_REDIS_REST_URL` /
-   `UPSTASH_REDIS_REST_TOKEN`) in the project environment &mdash; the
-   `/api/league` handler reads whichever pair is present, so you do not
-   have to set them yourself. Note: the older `@vercel/kv` npm package is
-   deprecated; this project uses `@upstash/redis` directly.
+2. In the Vercel dashboard: **Add New Project** &rarr; import this repo.
+   Framework preset auto-detects as Vite.
+3. **Add a Postgres store**: Project &rarr; Storage &rarr; **Marketplace**
+   &rarr; add **Neon** (free tier available). Connect it to this project.
+   Vercel auto-populates `POSTGRES_URL`, `POSTGRES_URL_NON_POOLING`,
+   `POSTGRES_PRISMA_URL` etc. in the project environment &mdash; the
+   `@vercel/postgres` client reads them automatically.
 4. **Add the client env var**: Project &rarr; Settings &rarr; Environment
-   Variables &rarr; add `VITE_USE_REMOTE=1` for the Production and Preview
-   environments.
-5. **Redeploy**. That's it &mdash; the badge in the top-right of the app
-   will read "Shared &bull; synced" instead of "Local only".
+   Variables &rarr; add `VITE_USE_REMOTE=1` for Production and Preview.
+5. **Deploy**.
+6. **Initialize the database once**: after the first deploy finishes, hit
+   `POST /api/admin/init` (from your browser dev tools, `curl`, or Postman).
+   That creates all tables and seeds the roster / scoring categories from
+   the TS source. It's idempotent, so you can re-run it whenever
+   `src/data/players.ts` or `src/data/scoringRules.ts` changes and want
+   the DB to catch up.
+   ```bash
+   curl -X POST https://<your-deployment>.vercel.app/api/admin/init
+   ```
+7. *(Optional)* If you have data in the old Upstash Redis blob, copy it
+   over once by hitting `POST /api/admin/migrate-from-kv` while both the
+   `POSTGRES_*` and `KV_REST_API_*` env vars are attached. After that
+   you can safely remove the Upstash integration.
 
-To develop locally against the real KV instance, install the Vercel CLI,
-run `vercel link`, then `vercel env pull .env.development.local` and
+To develop locally against the real DB, install the Vercel CLI, run
+`vercel link`, then `vercel env pull .env.development.local` and
 `vercel dev`. Without those, `npm run dev` uses the localStorage backend
 so you don't need a database to iterate.
 
-## Why Vercel KV (and not Postgres)
+## Data model
 
-The whole "current game state" for one league is small &mdash; 21 players
-&times; ~15 episodes &times; 15 event types &lt; 5 KB &mdash; and it
-never needs joins, indexes, or partial updates. Storing it as a single
-JSON blob under one Redis key means one `GET` per page load and one
-`SET` per commit. If the league ever grows into multi-league or history
-requirements, `src/data/storage.ts` is a clean seam to swap in Postgres
-without touching UI code.
+The Postgres schema (see `api/_schema.sql` / `api/_schema.ts`) is
+relational so future features (multi-season, per-episode analysis,
+predictions leaderboards) can just SQL against it:
+
+- `managers(name, display_name, ...)`
+- `players(id, name, ..., manager_name, status)` &mdash; status is
+  `active | voted_out | medevac | quit | winner`.
+- `scoring_categories(id, group, label, points, sort_order)`
+- `episode_events(player_id, episode, category_id, count)`
+- `score_overrides(player_id, episode, delta, reason)` &mdash;
+  commissioner adjustments.
+- `predictions(manager, episode, category_id, target_player_id, locked)`
+- `meta(key, value)` &mdash; free-form key/value bag.
