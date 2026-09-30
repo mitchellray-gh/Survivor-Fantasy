@@ -174,7 +174,16 @@ function App() {
 
         {activeTab === 'scoring' && (
           <section className="tab-panel">
-            <ScoringTab service={service} players={players} scoringCategories={cats} episode={scoringEpisode} onEpisodeChange={setScoringEpisode} onToggleEvent={onToggleEvent} />
+            <ScoringTab
+              service={service}
+              players={players}
+              scoringCategories={cats}
+              episode={scoringEpisode}
+              onEpisodeChange={setScoringEpisode}
+              onToggleEvent={onToggleEvent}
+              needsAdminKey={service.isRemote()}
+              onOpenAdmin={() => setAdminOpen(true)}
+            />
           </section>
         )}
       </main>

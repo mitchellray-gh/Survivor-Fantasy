@@ -1,4 +1,5 @@
 import React from 'react'
+import { getAdminKey } from '../data/storage'
 import type { PlayerService, Player, ScoringCategory, ScoringCategoryId } from '../data/playerService'
 
 interface ScoringTabProps {
@@ -8,11 +9,38 @@ interface ScoringTabProps {
   episode: number
   onEpisodeChange: (n: number) => void
   onToggleEvent: (playerId: number, catId: ScoringCategoryId) => void
+  /** Set when the backend is remote, so the grid must be admin-key gated. */
+  needsAdminKey: boolean
+  onOpenAdmin: () => void
 }
 
 const ScoringTab: React.FC<ScoringTabProps> = ({
   service, players, scoringCategories, episode, onEpisodeChange, onToggleEvent,
-}) => (
+  needsAdminKey, onOpenAdmin,
+}) => {
+  // Remote backends reject writes without the key, so hide the buttons rather
+  // than let the user tap into a 401. Local storage needs no key at all.
+  const locked = needsAdminKey && getAdminKey().length === 0
+
+  if (locked) {
+    return (
+      <div className="scoring-content">
+        <h2>Score an Episode</h2>
+        <p>Scoring writes go straight to the shared league database, so the
+           commissioner key is required before you can change any scores.</p>
+        <button type="button" className="btn btn-primary" onClick={onOpenAdmin}>
+          Enter admin key
+        </button>
+        <p className="drawer-help" style={{ marginTop: 12 }}>
+          Once the key is saved, this grid becomes editable. Tapping a category
+          button adds that event for the selected episode; tapping it again
+          removes it.
+        </p>
+      </div>
+    )
+  }
+
+  return (
   <div className="scoring-content">
     <h2>Score an Episode</h2>
     <p>Toggle the events that happened to each castaway in the selected episode. Points update automatically and persist in this browser.</p>
@@ -60,11 +88,16 @@ const ScoringTab: React.FC<ScoringTabProps> = ({
                 </td>
                 {scoringCategories.map(c => (
                   <td key={c.id}>
-                    <input
-                      type="checkbox"
-                      checked={service.getEventValue(p.id, episode, c.id) === 1}
-                      onChange={() => onToggleEvent(p.id, c.id)}
-                    />
+                    <button
+                      type="button"
+                      className={`score-btn${service.getEventValue(p.id, episode, c.id) > 0 ? ' is-on' : ''}`}
+                      aria-pressed={service.getEventValue(p.id, episode, c.id) > 0}
+                      aria-label={`${c.label} for ${p.name}`}
+                      title={c.label}
+                      onClick={() => onToggleEvent(p.id, c.id)}
+                    >
+                      {c.points >= 0 ? '+' : ''}{c.points}
+                    </button>
                   </td>
                 ))}
                 <td className={`pts ${epTotal < 0 ? 'neg' : ''}`}>{epTotal}</td>
@@ -75,6 +108,7 @@ const ScoringTab: React.FC<ScoringTabProps> = ({
       </table>
     </div>
   </div>
-)
+  )
+}
 
 export default ScoringTab
