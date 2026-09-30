@@ -994,6 +994,145 @@
 }
 
 /* ============================================================================
+   "MY LEAGUE" panel - the manager's own view at the top of the home tab.
+   ============================================================================ */
+
+.myleague {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.myleague-empty { gap: 8px; }
+
+.myleague-pick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.myleague-pick > label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  min-width: 74px;
+}
+.myleague-pick .select { flex: 1; min-width: 140px; }
+
+.myleague-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(78px, 1fr));
+  gap: 8px;
+}
+.my-stat {
+  text-align: center;
+  padding: 8px 6px;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.my-stat-value {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.1;
+}
+.my-stat-value span { font-size: 12px; color: var(--text-dim); }
+.my-stat-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+.my-stat-hero {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.my-stat-hero .my-stat-value { color: white; font-size: 26px; }
+.my-stat-hero .my-stat-label { color: rgba(255, 255, 255, 0.85); }
+
+.myleague-sub {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+.myleague-roster {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 6px;
+}
+.my-player {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 7px;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  min-width: 0;
+}
+.my-player.is-out { opacity: 0.5; }
+.my-player img {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.my-player-id { flex: 1; min-width: 0; }
+.my-player-name {
+  font-size: 11px; font-weight: 700; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.my-player-tribe {
+  font-size: 9px; color: var(--text-dim);
+  text-transform: capitalize;
+}
+.my-player-pts {
+  font-size: 13px; font-weight: 800; color: var(--accent);
+  flex-shrink: 0;
+}
+.my-player-pts.neg { color: #fca5a5; }
+
+.my-clash {
+  padding: 7px 9px;
+  margin-bottom: 6px;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--tribe-color, var(--border));
+  border-radius: var(--radius-sm);
+}
+.my-clash-name {
+  font-size: 11px; font-weight: 800;
+  color: var(--tribe-color, var(--text));
+  margin-bottom: 4px;
+}
+.my-clash-name span { color: var(--text-dim); font-weight: 600; }
+.my-clash-rivals { display: flex; flex-wrap: wrap; gap: 4px; }
+.my-clash-chip {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+}
+
+/* ============================================================================
    TRIBES. --tribe-color is set inline per tribe from src/data/tribes.ts, so
    the whole board recolours from the data rather than three copies of the CSS.
    ============================================================================ */

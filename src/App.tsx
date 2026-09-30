@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import Header from './components/Header'
+import MyLeague from './components/MyLeague'
 import PlayerCard from './components/PlayerCard'
 import PredictionsTab from './components/PredictionsTab'
 import ScoringTab from './components/ScoringTab'
@@ -10,6 +11,30 @@ import AdminDrawer from './components/AdminDrawer'
 import './App.css'
 
 const GROUPS = ['Survival','Challenge','Advantage','Social & Drama'] as const
+
+/**
+ * "Who am I?" is remembered in localStorage so a manager only picks once.
+ * Read lazily so a first visit (no key yet) still starts empty rather than
+ * throwing during module init.
+ */
+const MY_MANAGER_KEY = 'survivor_fantasy_my_manager'
+
+function loadMyManager(): string | null {
+  try {
+    return localStorage.getItem(MY_MANAGER_KEY)
+  } catch {
+    return null // private mode / storage blocked
+  }
+}
+
+function saveMyManager(name: string | null): void {
+  try {
+    if (name) localStorage.setItem(MY_MANAGER_KEY, name)
+    else localStorage.removeItem(MY_MANAGER_KEY)
+  } catch {
+    // Non-fatal: they just re-pick next time.
+  }
+}
 const TAB_TITLES: Record<TabId, string> = {
   dashboard:   'Standings',
   players:     'Castaways',
@@ -37,6 +62,14 @@ function App() {
   const [predictionManager, setPredictionManager] = useState<string | null>(null)
   const [rulesOpen, setRulesOpen] = useState(false)
   const [adminOpen, setAdminOpen] = useState(false)
+  const [myManager, setMyManager] = useState<string | null>(loadMyManager)
+
+  const onSelectManager = (name: string) => {
+    setMyManager(name); saveMyManager(name); bump()
+  }
+  const onClearManager = () => {
+    setMyManager(null); saveMyManager(null); bump()
+  }
 
   const players = service.getPlayers()
   const managers = service.getManagers()
@@ -87,6 +120,14 @@ function App() {
       <main className="app-main">
         {activeTab === 'dashboard' && (
           <section className="tab-panel">
+            <MyLeague
+              service={service}
+              selected={myManager}
+              managers={managers.map(m => m.name)}
+              onSelect={onSelectManager}
+              onChange={onClearManager}
+            />
+
             <div className="hero-note">Season 51 premieres Wed Sept 23, 2026 on CBS &amp; Paramount+.</div>
 
             <div className="list-card">

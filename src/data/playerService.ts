@@ -21,6 +21,22 @@ export interface Manager {
   players: Player[]
 }
 
+export interface ManagerStats {
+  name: string
+  total: number
+  /** 1-based position on the leaderboard. */
+  rank: number
+  /** How many managers share this total (including self). >1 means a tie. */
+  tied: number
+  of: number
+  rosterSize: number
+  alive: number
+  /** Roster members who have scored at least one point. */
+  scored: number
+  players: Array<{ player: Player; total: number }>
+  tribeClashes: Array<{ tribe: Tribe; rivals: Player[] }>
+}
+
 /**
  * PlayerService is the single source of truth for the UI. It merges:
  *
@@ -164,6 +180,68 @@ export class PlayerService {
     return this.players
       .filter(p => p.managerName === managerName)
       .reduce((sum, p) => sum + this.getPlayerTotal(p.id), 0)
+  }
+
+  /**
+   * Everything the "My League" panel needs for one manager. Computed in one
+   * pass so the panel does not have to re-derive standings math in the view.
+   */
+  getManagerStats(managerName: string): ManagerStats {
+    const roster = this.players.filter(p => p.managerName === managerName)
+    const totals = this.getManagerTotals()
+
+    // Rank is 1-based, best total first. Ties share the same rank.
+    const sorted = [...totals].sort((a, b) => b.total - a.total)
+    const rank = sorted.findIndex(m => m.name === managerName) + 1
+    const tied = sorted.filter(m => m.total === totals.find(t => t.name === managerName)?.total).length
+
+    const players = roster
+      .map(p => ({ player: p, total: this.getPlayerTotal(p.id) }))
+      .sort((a, b) => b.total - a.total || a.player.name.localeCompare(b.player.name))
+
+    const scored = players.filter(x => x.total !== 0).length
+
+    return {
+      name: managerName,
+      total: totals.find(t => t.name === managerName)?.total ?? 0,
+      rank,
+      tied,
+      of: totals.length,
+      rosterSize: roster.length,
+      alive: roster.filter(p => !p.votedOut).length,
+      scored,
+      players,
+      // Of each manager's drafted castaways, how many share a tribe with a
+      // rival's pick. Tribal overlap is the strategic cost of a draft.
+      tribeClashes: this.getTribeClashes(managerName),
+    }
+  }
+
+  /** Leaderboard of every manager, best total first. */
+  getManagerTotals(): Array<{ name: string; total: number; players: Player[] }> {
+    return this.getManagers().map(m => ({
+      name: m.name,
+      total: this.getManagerTotal(m.name),
+      players: m.players,
+    }))
+  }
+
+  /**
+   * Opposing-manager castaways drafted onto the same tribe as this manager's
+   * picks. These are the dangerous ones: they compete for the same immunity
+   * and the same Tribal Council votes.
+   */
+  getTribeClashes(managerName: string): Array<{ tribe: Tribe; rivals: Player[] }> {
+    const mine = new Set(
+      this.players.filter(p => p.managerName === managerName).map(p => p.tribe),
+    )
+    return TRIBES
+      .filter(t => mine.has(t.id))
+      .map(t => ({
+        tribe: t,
+        rivals: this.players.filter(p => p.tribe === t.id && p.managerName !== managerName),
+      }))
+      .filter(g => g.rivals.length > 0)
   }
 
   // -------- Events (per-episode scoring) -------------------------------------
