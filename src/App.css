@@ -994,6 +994,118 @@
 }
 
 /* ============================================================================
+   TRIBES. --tribe-color is set inline per tribe from src/data/tribes.ts, so
+   the whole board recolours from the data rather than three copies of the CSS.
+   ============================================================================ */
+
+.tribes {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tribe {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--tribe-color, var(--primary));
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.tribe-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--bg-elevated-2);
+  border-bottom: 1px solid var(--border);
+}
+.tribe-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--tribe-color, var(--text));
+  letter-spacing: -0.01em;
+}
+.tribe-color-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  margin-left: 4px;
+}
+.tribe-count { font-size: 12px; color: var(--text-muted); }
+.tribe-count strong { font-size: 15px; font-weight: 800; color: var(--text); }
+
+.tribe-players {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.tribe-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--tribe-color, var(--border));
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated-2);
+  min-width: 0;
+}
+.tribe-player.is-out { opacity: 0.5; }
+
+.tribe-player img {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.tribe-player-id { flex: 1; min-width: 0; }
+.tribe-player-name {
+  font-size: 12px; font-weight: 700; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tribe-player-manager { font-size: 10px; color: var(--text-dim); }
+
+.tribe-badge {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.tribe-badge.is-winner {
+  background: #fef3c7;
+  border-color: #f59e0b;
+  color: #92400e;
+}
+
+.tribe-out-btn {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 7px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.tribe-out-btn:hover { color: var(--text); border-color: var(--border-strong); }
+.tribe-out-btn.is-revive { color: var(--primary); border-color: var(--primary); }
+
+/* ============================================================================
    Wide-viewport tweaks.
    ============================================================================ */
 @media (min-width: 700px) {

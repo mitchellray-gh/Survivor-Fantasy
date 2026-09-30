@@ -1,4 +1,5 @@
 import { PLAYERS, type Player } from './players'
+import { PLAYER_TRIBES, TRIBES, type Tribe } from './tribes'
 import {
   SCORING_CATEGORIES,
   type ScoringCategory,
@@ -40,8 +41,9 @@ export class PlayerService {
 
   constructor(private readonly backend: StorageBackend = createBackend()) {
     // Deep-copy the static roster; votedOut kept as a convenience field the
-    // rest of the app already reads.
-    this.players = PLAYERS.map(p => ({ ...p, votedOut: false }))
+    // rest of the app already reads. Tribe is stamped on here so both
+    // hydrate() branches (remote and local) inherit it for free.
+    this.players = PLAYERS.map(p => ({ ...p, votedOut: false, tribe: PLAYER_TRIBES[p.id] }))
   }
 
   /** Load persisted state and merge it onto the static roster. */
@@ -66,6 +68,9 @@ export class PlayerService {
             aboutMe:     remote.aboutMe    ?? base.aboutMe,
             photo:       remote.photo      ?? base.photo,
             managerName: remote.managerName ?? base.managerName,
+            // Re-stamped: this branch rebuilds from PLAYERS, not from the
+            // constructor's copy, so the tribe would otherwise be lost.
+            tribe:      PLAYER_TRIBES[base.id],
             status:      remote.status,
             votedOut:    remote.status !== 'active' && remote.status !== 'winner',
           }
@@ -99,6 +104,21 @@ export class PlayerService {
 
   getPlayers(): Player[] { return this.players }
   getPlayerById(id: number): Player | undefined { return this.players.find(p => p.id === id) }
+
+  /** Tribe definitions in display order. */
+  getTribes(): Tribe[] { return TRIBES }
+
+  /**
+   * Players grouped by tribe, in TRIBES order. Castaways with no tribe are
+   * skipped rather than dumped into a catch-all bucket, so the board always
+   * shows exactly the real three-way split.
+   */
+  getPlayersByTribe(): Array<{ tribe: Tribe; players: Player[] }> {
+    return TRIBES.map(t => ({
+      tribe: t,
+      players: this.players.filter(p => p.tribe === t.id),
+    }))
+  }
 
   getManagers(): Manager[] {
     const byName = new Map<string, Player[]>()

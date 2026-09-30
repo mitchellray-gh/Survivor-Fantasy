@@ -8,6 +8,16 @@
 // canonical version).
 
 export const SCHEMA_STATEMENTS: string[] = [
+  // Tribes are reference data: the cast is split into competing tribes, and
+  // two rivals drafted onto the same tribe is the whole point of the format.
+  `CREATE TABLE IF NOT EXISTS tribes (
+     id          TEXT PRIMARY KEY,
+     name        TEXT NOT NULL,
+     color_name  TEXT NOT NULL,
+     color       TEXT NOT NULL,
+     sort_order  INTEGER NOT NULL DEFAULT 0
+   )`,
+
   `CREATE TABLE IF NOT EXISTS managers (
      name          TEXT PRIMARY KEY,
      display_name  TEXT,
@@ -30,6 +40,20 @@ export const SCHEMA_STATEMENTS: string[] = [
    )`,
 
   `CREATE INDEX IF NOT EXISTS idx_players_manager ON players(manager_name)`,
+
+  // Adds tribe_id to a players table that already exists. CREATE TABLE IF NOT
+  // EXISTS above is a no-op for pre-existing deployments, so the column has to
+  // be added separately. Guarded so re-running init is safe.
+  `DO $$ BEGIN
+     IF NOT EXISTS (
+       SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'players' AND column_name = 'tribe_id'
+     ) THEN
+       ALTER TABLE players ADD COLUMN tribe_id TEXT REFERENCES tribes(id) ON UPDATE CASCADE ON DELETE SET NULL;
+     END IF;
+   END $$`,
+
+  `CREATE INDEX IF NOT EXISTS idx_players_tribe ON players(tribe_id)`,
 
   `CREATE TABLE IF NOT EXISTS episodes (
      number     INTEGER PRIMARY KEY,

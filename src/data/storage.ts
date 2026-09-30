@@ -51,8 +51,17 @@ export interface StatePrediction {
   locked: boolean
 }
 
+export interface StateTribe {
+  id: string
+  name: string
+  colorName: string
+  color: string
+  sortOrder: number
+}
+
 export interface StateSnapshot {
   players: StatePlayer[]   // may be empty on local backend; caller falls back to static
+  tribes: StateTribe[]
   events: StateEvent[]
   overrides: StateOverride[]
   predictions: StatePrediction[]
@@ -60,7 +69,7 @@ export interface StateSnapshot {
 }
 
 export const EMPTY_SNAPSHOT: StateSnapshot = {
-  players: [], events: [], overrides: [], predictions: [], meta: {},
+  players: [], tribes: [], events: [], overrides: [], predictions: [], meta: {},
 }
 
 export interface StorageBackend {
@@ -89,6 +98,7 @@ export class LocalStorageBackend implements StorageBackend {
       const parsed = JSON.parse(raw) as Partial<StateSnapshot>
       return {
         players:     Array.isArray(parsed.players)     ? parsed.players     : [],
+        tribes:      Array.isArray(parsed.tribes)      ? parsed.tribes      : [],
         events:      Array.isArray(parsed.events)      ? parsed.events      : [],
         overrides:   Array.isArray(parsed.overrides)   ? parsed.overrides   : [],
         predictions: Array.isArray(parsed.predictions) ? parsed.predictions : [],
@@ -229,6 +239,7 @@ export class RemoteBackend implements StorageBackend {
     const raw = (await res.json()) as any
     return {
       players:     Array.isArray(raw.players)     ? raw.players     : [],
+      tribes:      Array.isArray(raw.tribes)      ? raw.tribes      : [],
       events:      Array.isArray(raw.events)      ? raw.events      : [],
       overrides:   Array.isArray(raw.overrides)   ? raw.overrides   : [],
       predictions: Array.isArray(raw.predictions) ? raw.predictions : [],

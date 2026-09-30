@@ -4,7 +4,8 @@
 import { sql, type FullState, type PlayerStatus } from './_db'
 
 export async function loadFullState(): Promise<FullState> {
-  const [managers, players, categories, events, overrides, predictions, meta] = await Promise.all([
+  const [tribes, managers, players, categories, events, overrides, predictions, meta] = await Promise.all([
+    sql`SELECT id, name, color_name, color, sort_order FROM tribes ORDER BY sort_order, id`,
     sql`SELECT name, display_name FROM managers ORDER BY name`,
     sql`SELECT id, name, age, hometown, residence, occupation, about_me, photo,
                manager_name, status
@@ -22,6 +23,13 @@ export async function loadFullState(): Promise<FullState> {
 
   return {
     schemaVersion: Number(metaObj.schema_version ?? '1'),
+    tribes: tribes.rows.map(r => ({
+      id: String(r.id),
+      name: String(r.name),
+      colorName: String(r.color_name),
+      color: String(r.color),
+      sortOrder: Number(r.sort_order),
+    })),
     managers: managers.rows.map(r => ({
       name: String(r.name),
       displayName: r.display_name == null ? null : String(r.display_name),

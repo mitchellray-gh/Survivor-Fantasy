@@ -3,6 +3,7 @@ import Header from './components/Header'
 import PlayerCard from './components/PlayerCard'
 import PredictionsTab from './components/PredictionsTab'
 import ScoringTab from './components/ScoringTab'
+import TribesPanel from './components/TribesPanel'
 import TabBar, { type TabId } from './components/TabBar'
 import { PlayerService, type ScoringCategoryId, type PlayerStatus } from './data/playerService'
 import AdminDrawer from './components/AdminDrawer'
@@ -12,6 +13,7 @@ const GROUPS = ['Survival','Challenge','Advantage','Social & Drama'] as const
 const TAB_TITLES: Record<TabId, string> = {
   dashboard:   'Standings',
   players:     'Castaways',
+  tribes:      'Tribes',
   teams:       'Teams',
   predictions: 'Predictions',
   scoring:     'Score Episode',
@@ -131,6 +133,17 @@ function App() {
                 <PlayerCard key={p.id} player={p} managerLabel={p.managerName} totalPoints={service.getPlayerTotal(p.id)} onVoteOut={onVoteOut} onUnvoteOut={onUnvoteOut} showVoteControls />
               ))}
             </div>
+          </section>
+        )}
+
+        {activeTab === 'tribes' && (
+          <section className="tab-panel">
+            <div className="hero-note">
+              The cast is split into competing tribes. Tribal loyalty is the
+              strategic core of Survivor, so a rival drafted onto your tribe is
+              a real cost.
+            </div>
+            <TribesPanel service={service} onVoteOut={onVoteOut} onUnvoteOut={onUnvoteOut} />
           </section>
         )}
 

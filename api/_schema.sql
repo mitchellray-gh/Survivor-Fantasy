@@ -1,6 +1,14 @@
 -- Survivor Fantasy League schema for Vercel Postgres (Neon).
 -- Applied by POST /api/admin/init. Safe to re-run (all statements are IF NOT EXISTS).
 
+CREATE TABLE IF NOT EXISTS tribes (
+  id          TEXT PRIMARY KEY,
+  name        TEXT NOT NULL,
+  color_name  TEXT NOT NULL,
+  color       TEXT NOT NULL,
+  sort_order  INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE TABLE IF NOT EXISTS managers (
   name          TEXT PRIMARY KEY,
   display_name  TEXT,
@@ -24,6 +32,20 @@ CREATE TABLE IF NOT EXISTS players (
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_players_manager ON players(manager_name);
+
+-- CREATE TABLE IF NOT EXISTS above is a no-op on a pre-existing players
+-- table, so the column is added separately. Idempotent.
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_name = 'players' AND column_name = 'tribe_id'
+  ) THEN
+    ALTER TABLE players
+      ADD COLUMN tribe_id TEXT REFERENCES tribes(id) ON UPDATE CASCADE ON DELETE SET NULL;
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_players_tribe ON players(tribe_id);
 
 CREATE TABLE IF NOT EXISTS episodes (
   number     INTEGER PRIMARY KEY,

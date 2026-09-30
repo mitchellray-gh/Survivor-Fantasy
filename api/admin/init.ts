@@ -18,6 +18,7 @@ import {
 import { SCHEMA_STATEMENTS } from '../_schema'
 import { PLAYERS } from '../../src/data/players'
 import { SCORING_CATEGORIES } from '../../src/data/scoringRules'
+import { PLAYER_TRIBES, TRIBES } from '../../src/data/tribes'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   applyCors(res, 'POST, OPTIONS')
@@ -39,7 +40,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await sql.query(stmt)
     }
 
-    // 2. Managers - one row per unique managerName in the roster.
+    // 2. Tribes. Reference data - keep names/colors in sync with code.
+    for (const t of TRIBES) {
+      await sql`
+        INSERT INTO tribes (id, name, color_name, color, sort_order)
+        VALUES (${t.id}, ${t.name}, ${t.colorName}, ${t.color}, ${t.order})
+        ON CONFLICT (id) DO UPDATE SET
+          name       = EXCLUDED.name,
+          color_name = EXCLUDED.color_name,
+          color      = EXCLUDED.color,
+          sort_order = EXCLUDED.sort_order
+      `
+    }
+
+    // 3. Managers - one row per unique managerName in the roster.
     const managerNames = Array.from(new Set(PLAYERS.map(p => p.managerName)))
       .filter(n => n && n.length > 0)
     for (const name of managerNames) {
@@ -70,12 +84,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     for (const p of PLAYERS) {
       const before = await sql`SELECT 1 FROM players WHERE id = ${p.id}`
       const exists = before.rowCount ?? 0
+      const tribeId = PLAYER_TRIBES[p.id] ?? null
       await sql`
         INSERT INTO players (id, name, age, hometown, residence, occupation,
-                             about_me, photo, manager_name, status)
+                             about_me, photo, manager_name, status, tribe_id)
         VALUES (${p.id}, ${p.name}, ${p.age}, ${p.hometown}, ${p.residence},
                 ${p.occupation}, ${p.aboutMe}, ${p.photo}, ${p.managerName},
-                'active')
+                'active', ${tribeId})
         ON CONFLICT (id) DO UPDATE SET
           name         = EXCLUDED.name,
           age          = EXCLUDED.age,
@@ -85,6 +100,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           about_me     = EXCLUDED.about_me,
           photo        = EXCLUDED.photo,
           manager_name = EXCLUDED.manager_name,
+          tribe_id     = EXCLUDED.tribe_id,
           updated_at   = NOW()
       `
       if (exists) updated++; else inserted++
@@ -92,6 +108,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     res.status(200).json({
       ok: true,
+      tribes: TRIBES.length,
       managers: managerNames.length,
       categories: SCORING_CATEGORIES.length,
       playersInserted: inserted,

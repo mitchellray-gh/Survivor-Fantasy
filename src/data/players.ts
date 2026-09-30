@@ -2,6 +2,8 @@
 // Draft assignments come from playersdrafted.txt.
 // This is the single source of truth for player data.
 
+import type { TribeId } from './tribes'
+
 export type PlayerStatus = 'active' | 'voted_out' | 'medevac' | 'quit' | 'winner'
 
 export interface Player {
@@ -16,6 +18,7 @@ export interface Player {
   managerName: string    // who drafted this castaway (from playersdrafted.txt)
   votedOut: boolean      // convenience: true when status is anything except 'active'/'winner'
   status?: PlayerStatus  // populated after PlayerService.hydrate()
+  tribe?: TribeId        // static reference data, see src/data/tribes.ts
 }
 
 export const PLAYERS: Player[] = [

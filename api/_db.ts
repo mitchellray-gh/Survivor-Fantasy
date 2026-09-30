@@ -59,8 +59,17 @@ export interface PredictionRow {
   locked: boolean
 }
 
+export interface TribeRow {
+  id: string
+  name: string
+  colorName: string
+  color: string
+  sortOrder: number
+}
+
 export interface FullState {
   schemaVersion: number
+  tribes: TribeRow[]
   managers: ManagerRow[]
   players: PlayerRow[]
   categories: ScoringCategoryRow[]
