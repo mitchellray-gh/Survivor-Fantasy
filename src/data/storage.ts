@@ -51,6 +51,10 @@ export interface StatePrediction {
   categoryId: ScoringCategoryId
   targetPlayerId: number | null
   locked: boolean
+  /** Chips wagered on this pick. Optional for rows written before wagers. */
+  stake?: number
+  /** Cached result of settlement: 1 hit, 0 miss, null unresolved. */
+  result?: number | null
 }
 
 export interface StateTribe {

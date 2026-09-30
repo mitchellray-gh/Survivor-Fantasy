@@ -1,5 +1,6 @@
 import { PLAYERS, type Player } from './players'
 import { PLAYER_TRIBES, TRIBES, type Tribe, type TribeId } from './tribes'
+import { payoutFor } from './predictions'
 import {
   SCORING_CATEGORIES,
   type ScoringCategory,
@@ -313,15 +314,123 @@ export class PlayerService {
     )?.targetPlayerId ?? null
   }
 
-  setPrediction(manager: string, episode: number, categoryId: ScoringCategoryId, targetPlayerId: number | null): void {
+  /** Full row for a manager's pick in one market, or null. */
+  getPredictionRow(manager: string, episode: number, categoryId: ScoringCategoryId): StatePrediction | null {
+    return this.predictions.find(p =>
+      p.manager === manager && p.episode === episode && p.categoryId === categoryId
+    ) ?? null
+  }
+
+  setPrediction(
+    manager: string,
+    episode: number,
+    categoryId: ScoringCategoryId,
+    targetPlayerId: number | null,
+    stake = 0,
+  ): void {
     this.predictions = this.predictions.filter(p =>
       !(p.manager === manager && p.episode === episode && p.categoryId === categoryId)
     )
     if (targetPlayerId !== null) {
-      this.predictions.push({ manager, episode, categoryId, targetPlayerId, locked: false })
+      this.predictions.push({ manager, episode, categoryId, targetPlayerId, locked: false, stake })
     }
-    void this.backend.setPrediction({ manager, episode, categoryId, targetPlayerId, locked: false })
+    void this.backend.setPrediction({ manager, episode, categoryId, targetPlayerId, locked: false, stake })
       .catch(err => console.error('[PlayerService] setPrediction failed:', err))
+  }
+
+  /**
+   * Settle one market for an episode against the commissioner's scoring.
+   *
+   * A pick is a HIT when the recorded event for that category belongs to the
+   * predicted player. Returns null when the episode has no scored event for
+   * that market yet - we cannot call a miss on an unscored week.
+   */
+  settleMarket(episode: number, categoryId: ScoringCategoryId): { winnerId: number | null; settled: boolean } {
+    const winners = this.events
+      .filter(e => e.episode === episode && e.categoryId === categoryId && e.count > 0)
+      .map(e => e.playerId)
+    return { winnerId: winners[0] ?? null, settled: winners.length > 0 }
+  }
+
+  /** A manager's ticket for one episode, enriched with settlement state. */
+  getTicket(
+    manager: string,
+    episode: number,
+    categoryId: ScoringCategoryId,
+  ): {
+    targetPlayerId: number | null
+    stake: number
+    result: 'hit' | 'miss' | 'open'
+    payout: number
+    winnerId: number | null
+  } | null {
+    const row = this.getPredictionRow(manager, episode, categoryId)
+    if (!row || row.targetPlayerId === null) return null
+
+    const stake = row.stake ?? 0
+    const { winnerId, settled } = this.settleMarket(episode, categoryId)
+
+    if (!settled) return { targetPlayerId: row.targetPlayerId, stake, result: 'open', payout: 0, winnerId: null }
+
+    const hit = winnerId !== null && winnerId === row.targetPlayerId
+    return {
+      targetPlayerId: row.targetPlayerId,
+      stake,
+      result: hit ? 'hit' : 'miss',
+      payout: hit ? payoutFor(categoryId, stake) : 0,
+      winnerId,
+    }
+  }
+
+  /** Chips deployed by a manager on one episode. */
+  getStaked(manager: string, episode: number): number {
+    return this.predictions
+      .filter(p => p.manager === manager && p.episode === episode)
+      .reduce((sum, p) => sum + (p.stake ?? 0), 0)
+  }
+
+  /**
+   * Ledger for one manager and episode: what was staked, what came back, and
+   * the net. Chips are a side game and never touch the league scoreboard.
+   *
+   * `net` deliberately EXCLUDES open (unsettled) stakes. An unscored episode
+   * is a pending bet, not a loss, and counting it as one would show a manager
+   * down chips they have not actually lost yet.
+   */
+  getLedger(manager: string, episode: number): {
+    staked: number
+    settledStaked: number
+    returned: number
+    net: number
+    open: number
+  } {
+    const rows = this.predictions.filter(p => p.manager === manager && p.episode === episode)
+    let staked = 0, settledStaked = 0, returned = 0, open = 0
+    for (const row of rows) {
+      const stake = row.stake ?? 0
+      staked += stake
+      const cat = row.categoryId as ScoringCategoryId
+      const { winnerId, settled } = this.settleMarket(episode, cat)
+      if (!settled) { open += stake; continue }
+      settledStaked += stake
+      if (winnerId !== null && winnerId === row.targetPlayerId) returned += payoutFor(cat, stake)
+    }
+    return { staked, settledStaked, returned, net: returned - settledStaked, open }
+  }
+
+  /** Season-to-date chip P&L for a manager. */
+  getChipBalance(manager: string): number {
+    const episodes = new Set(this.predictions.filter(p => p.manager === manager).map(p => p.episode))
+    let bal = 0
+    for (const ep of episodes) bal += this.getLedger(manager, ep).net
+    return bal
+  }
+
+  /** Chip leaderboard, best first. */
+  getChipStandings(): Array<{ manager: string; balance: number }> {
+    return this.getManagers()
+      .map(m => ({ manager: m.name, balance: this.getChipBalance(m.name) }))
+      .sort((a, b) => b.balance - a.balance || a.manager.localeCompare(b.manager))
   }
 }
 

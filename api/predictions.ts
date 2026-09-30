@@ -28,9 +28,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const categoryId = requireStr(body.categoryId, 'categoryId')
     const target = body.targetPlayerId
     const targetPlayerId = target == null ? null : requireInt(target, 'targetPlayerId')
+    const stake = body.stake == null ? 0 : requireInt(body.stake, 'stake')
+    const result = body.result === null || body.result === undefined ? null : requireInt(body.result, 'result')
 
+    // Re-picking is closed once the commissioner locks the week. Settlement
+    // writes (result non-null) are still allowed so a scored episode can be
+    // marked even after the board is locked.
     const locked = await sql`SELECT value FROM meta WHERE key = 'predictions_locked'`
-    if (locked.rows[0]?.value === 'true') {
+    if (locked.rows[0]?.value === 'true' && result === null) {
       throw new HttpError(409, 'Predictions are locked by the commissioner')
     }
 
@@ -41,14 +46,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       `
     } else {
       await sql`
-        INSERT INTO predictions (manager, episode, category_id, target_player_id)
-        VALUES (${manager}, ${episode}, ${categoryId}, ${targetPlayerId})
+        INSERT INTO predictions (manager, episode, category_id, target_player_id, stake, result)
+        VALUES (${manager}, ${episode}, ${categoryId}, ${targetPlayerId}, ${stake}, ${result})
         ON CONFLICT (manager, episode, category_id)
-        DO UPDATE SET target_player_id = EXCLUDED.target_player_id
+        DO UPDATE SET target_player_id = EXCLUDED.target_player_id,
+                      stake             = EXCLUDED.stake,
+                      result            = EXCLUDED.result
       `
     }
 
-    res.status(200).json({ ok: true, manager, episode, categoryId, targetPlayerId })
+    res.status(200).json({ ok: true, manager, episode, categoryId, targetPlayerId, stake, result })
   } catch (err) {
     handleError(res, err)
   }

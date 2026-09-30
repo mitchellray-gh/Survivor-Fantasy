@@ -97,9 +97,27 @@ export const SCHEMA_STATEMENTS: string[] = [
      category_id       TEXT    NOT NULL REFERENCES scoring_categories(id) ON DELETE CASCADE,
      target_player_id  INTEGER REFERENCES players(id) ON DELETE SET NULL,
      locked            BOOLEAN NOT NULL DEFAULT FALSE,
+     stake             INTEGER NOT NULL DEFAULT 0,
+     result            INTEGER,
      created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
      PRIMARY KEY (manager, episode, category_id)
    )`,
+
+  // Wagering columns, added to a pre-existing predictions table.
+  `DO $$ BEGIN
+     IF NOT EXISTS (
+       SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'predictions' AND column_name = 'stake'
+     ) THEN
+       ALTER TABLE predictions ADD COLUMN stake INTEGER NOT NULL DEFAULT 0;
+     END IF;
+     IF NOT EXISTS (
+       SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'predictions' AND column_name = 'result'
+     ) THEN
+       ALTER TABLE predictions ADD COLUMN result INTEGER;
+     END IF;
+   END $$`,
 
   `CREATE TABLE IF NOT EXISTS meta (
      key    TEXT PRIMARY KEY,

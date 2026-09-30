@@ -88,9 +88,26 @@ CREATE TABLE IF NOT EXISTS predictions (
   category_id       TEXT    NOT NULL REFERENCES scoring_categories(id) ON DELETE CASCADE,
   target_player_id  INTEGER REFERENCES players(id) ON DELETE SET NULL,
   locked            BOOLEAN NOT NULL DEFAULT FALSE,
+  stake             INTEGER NOT NULL DEFAULT 0,
+  result            INTEGER,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (manager, episode, category_id)
 );
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_name = 'predictions' AND column_name = 'stake'
+  ) THEN
+    ALTER TABLE predictions ADD COLUMN stake INTEGER NOT NULL DEFAULT 0;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_name = 'predictions' AND column_name = 'result'
+  ) THEN
+    ALTER TABLE predictions ADD COLUMN result INTEGER;
+  END IF;
+END $$;
 
 -- Free-form key/value bag for things that don't deserve their own table:
 --   'schema_version' -> '1'

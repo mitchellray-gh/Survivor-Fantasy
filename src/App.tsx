@@ -8,6 +8,7 @@ import TribesPanel from './components/TribesPanel'
 import TabBar, { type TabId } from './components/TabBar'
 import { PlayerService, type ScoringCategoryId, type PlayerStatus } from './data/playerService'
 import AdminDrawer from './components/AdminDrawer'
+import Dossier from './components/Dossier'
 import './App.css'
 
 const GROUPS = ['Survival','Challenge','Advantage','Social & Drama'] as const
@@ -89,10 +90,14 @@ function App() {
     service.setOverride(playerId, episode, delta, reason); bump()
   }
 
-  const onSetPrediction = (catId: ScoringCategoryId, targetPlayerId: number | null) => {
+  const onSetPrediction = (catId: ScoringCategoryId, targetPlayerId: number | null, stake: number) => {
     if (!predictionManager) return
-    service.setPrediction(predictionManager, predictionEpisode, catId, targetPlayerId); bump()
+    service.setPrediction(predictionManager, predictionEpisode, catId, targetPlayerId, stake); bump()
   }
+
+  // "Why does the desk like them?" - opens a persona dossier in the drawer.
+  const [dossierPlayerId, setDossierPlayerId] = useState<number | null>(null)
+  const dossierPlayer = dossierPlayerId == null ? null : players.find(p => p.id === dossierPlayerId) ?? null
 
   const standings = useMemo(() => {
     void version
@@ -216,13 +221,13 @@ function App() {
           <PredictionsTab
             service={service}
             players={players}
-            scoringCategories={cats}
             currentManager={predictionManager}
             managers={managers.map(m => m.name)}
             onChangeManager={setPredictionManager}
             episode={predictionEpisode}
             onEpisodeChange={setPredictionEpisode}
             onSetPrediction={onSetPrediction}
+            onInspect={setDossierPlayerId}
           />
         )}
 
@@ -251,6 +256,26 @@ function App() {
         onPlayerStatusChange={onPlayerStatusChange}
         onOverrideChange={onOverrideChange}
       />
+
+      {/* Persona dossier: opened from the "?" on any odds row. */}
+      {dossierPlayer && (
+        <div className="drawer-backdrop" onClick={() => setDossierPlayerId(null)}>
+          <div className="drawer" onClick={e => e.stopPropagation()}>
+            <div className="drawer-header">
+              <h2 className="drawer-title">Desk Read</h2>
+              <button type="button" className="btn btn-ghost btn-sm"
+                onClick={() => setDossierPlayerId(null)} aria-label="Close">&times;</button>
+            </div>
+            <div className="drawer-body">
+              <Dossier
+                player={dossierPlayer}
+                players={players}
+                onClose={() => setDossierPlayerId(null)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

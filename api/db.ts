@@ -58,6 +58,8 @@ export interface PredictionRow {
   categoryId: string
   targetPlayerId: number | null
   locked: boolean
+  stake: number
+  result: number | null
 }
 
 export interface TribeRow {

@@ -14,7 +14,7 @@ export async function loadFullState(): Promise<FullState> {
         FROM scoring_categories ORDER BY sort_order, id`,
     sql`SELECT player_id, episode, category_id, count FROM episode_events`,
     sql`SELECT player_id, episode, delta, reason FROM score_overrides`,
-    sql`SELECT manager, episode, category_id, target_player_id, locked FROM predictions`,
+    sql`SELECT manager, episode, category_id, target_player_id, locked, stake, result FROM predictions`,
     sql`SELECT key, value FROM meta`,
   ])
 
@@ -72,6 +72,8 @@ export async function loadFullState(): Promise<FullState> {
       categoryId: String(r.category_id),
       targetPlayerId: r.target_player_id == null ? null : Number(r.target_player_id),
       locked: Boolean(r.locked),
+      stake: r.stake == null ? 0 : Number(r.stake),
+      result: r.result == null ? null : Number(r.result),
     })),
     meta: metaObj,
   }
