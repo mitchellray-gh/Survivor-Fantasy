@@ -2,19 +2,13 @@
   "compilerOptions": {
     "target": "ES2022",
     "lib": ["ES2022"],
-    "module": "ESNext",
-    "moduleResolution": "bundler",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
-    // Vercel bundles these functions with esbuild and runs them as native ESM,
-    // where Node requires explicit file extensions. tsc's moduleResolution:
-    // "bundler" would tolerate omitting them, which is how the extensionless
-    // imports shipped and then failed at runtime with ERR_MODULE_NOT_FOUND.
-    // Safe because noEmit is true.
-    "allowImportingTsExtensions": true,
     "types": ["node"]
   },
   "include": ["api", "src/data/players.ts", "src/data/scoringRules.ts"]

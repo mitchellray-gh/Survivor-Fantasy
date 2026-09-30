@@ -2,7 +2,7 @@
 // Draft assignments come from playersdrafted.txt.
 // This is the single source of truth for player data.
 
-import type { TribeId } from './tribes'
+import type { TribeId } from './tribes.js'
 
 export type PlayerStatus = 'active' | 'voted_out' | 'medevac' | 'quit' | 'winner'
 
