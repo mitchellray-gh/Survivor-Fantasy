@@ -894,35 +894,99 @@
   cursor: pointer;
 }
 
-/* Scoring grid: one tappable button per event instead of a checkbox. The
-   button shows the point value so the grid is readable at a glance, and
-   lights up when the event is recorded. */
-.score-btn {
+/* Scoring grid: one card per castaway, one self-describing button per
+   scoring event. Buttons show the event name plus its point value, so
+   nothing depends on horizontal scroll position or hover. */
+.score-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.score-card.row-voted-out { opacity: 0.55; }
+
+.score-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg-elevated-2);
+  border-bottom: 1px solid var(--border);
+}
+.score-card-head img {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.score-card-id { flex: 1; min-width: 0; }
+.score-card-name {
+  font-size: 13px; font-weight: 700; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.score-card-sub { font-size: 11px; color: var(--text-dim); }
+.score-card-total {
+  display: flex; align-items: baseline; gap: 3px;
+  font-size: 18px; font-weight: 800; color: var(--accent);
+  flex-shrink: 0;
+}
+.score-card-total.neg { color: #fca5a5; }
+.score-card-total span { font-size: 10px; font-weight: 600; color: var(--text-dim); }
+
+.score-card-events {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+  padding: 10px 12px;
+}
+
+.score-ev {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   width: 100%;
-  min-width: 44px;
-  min-height: 34px;
-  padding: 0 4px;
+  min-height: var(--tap);
+  padding: 7px 9px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--bg-elevated-2);
-  color: var(--text-dim);
+  color: var(--text-muted);
   font: inherit;
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 1;
+  text-align: left;
   cursor: pointer;
   transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 }
-.score-btn:hover { border-color: var(--border-strong); color: var(--text); }
-.score-btn:active { transform: translateY(1px); }
-.score-btn.is-on {
+.score-ev:hover { border-color: var(--border-strong); color: var(--text); }
+.score-ev:active { transform: translateY(1px); }
+.score-ev:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+.score-ev-label {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.25;
+  min-width: 0;
+}
+
+.score-ev-pts {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+.score-ev-pts.neg { color: #fca5a5; }
+
+.score-ev.is-on {
   background: var(--primary);
   border-color: var(--primary);
   color: white;
 }
-.score-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.score-ev.is-on .score-ev-label,
+.score-ev.is-on .score-ev-pts { color: white; }
 
-/* Locked state: hide the row controls so nothing looks tappable. */
+/* Locked state: explain why the grid is not editable. */
 .scoring-locked-note {
   font-size: 13px;
   color: var(--text-muted);

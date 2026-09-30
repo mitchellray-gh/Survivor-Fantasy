@@ -41,73 +41,67 @@ const ScoringTab: React.FC<ScoringTabProps> = ({
   }
 
   return (
-  <div className="scoring-content">
-    <h2>Score an Episode</h2>
-    <p>Toggle the events that happened to each castaway in the selected episode. Points update automatically and persist in this browser.</p>
-    <label className="episode-picker">
-      Episode:{' '}
-      <input
-        type="number"
-        min={1}
-        value={episode}
-        onChange={e => onEpisodeChange(Math.max(1, Number(e.target.value) || 1))}
-      />
-    </label>
-    <div className="scoring-table-wrapper">
-      <table className="scoring-table">
-        <thead>
-          <tr>
-            <th className="sticky-col">Player</th>
-            {scoringCategories.map(c => (
-              <th key={c.id} title={c.label}>
-                <div className="cat-label">{c.label}</div>
-                <div className={`cat-pts ${c.points >= 0 ? 'pos' : 'neg'}`}>
-                  {c.points >= 0 ? '+' : ''}{c.points}
+    <div className="scoring-content">
+      <h2>Score an Episode</h2>
+      <p>Tap an event to record it for the selected episode, tap again to clear.
+         Points apply automatically from the league scoring table.</p>
+      <label className="episode-picker">
+        Episode:{' '}
+        <input
+          type="number"
+          min={1}
+          value={episode}
+          onChange={e => onEpisodeChange(Math.max(1, Number(e.target.value) || 1))}
+        />
+      </label>
+
+      {players.map(p => {
+        let epTotal = 0
+        for (const c of scoringCategories) {
+          epTotal += service.getEventValue(p.id, episode, c.id) * c.points
+        }
+        const activeCount = scoringCategories
+          .filter(c => service.getEventValue(p.id, episode, c.id) > 0)
+          .length
+        return (
+          <div key={p.id} className={`score-card${p.votedOut ? ' row-voted-out' : ''}`}>
+            <div className="score-card-head">
+              <img src={p.photo} alt="" />
+              <div className="score-card-id">
+                <div className="score-card-name">{p.name}</div>
+                <div className="score-card-sub">
+                  {p.managerName}
+                  {activeCount > 0 && <> &middot; {activeCount} event{activeCount > 1 ? 's' : ''}</>}
                 </div>
-              </th>
-            ))}
-            <th>Ep. total</th>
-          </tr>
-        </thead>
-        <tbody>
-          {players.map(p => {
-            let epTotal = 0
-            for (const c of scoringCategories) {
-              epTotal += service.getEventValue(p.id, episode, c.id) * c.points
-            }
-            return (
-              <tr key={p.id} className={p.votedOut ? 'row-voted-out' : ''}>
-                <td className="sticky-col">
-                  <div className="scoring-player-cell">
-                    <img src={p.photo} alt="" />
-                    <div>
-                      <div>{p.name}</div>
-                      <small>{p.managerName}</small>
-                    </div>
-                  </div>
-                </td>
-                {scoringCategories.map(c => (
-                  <td key={c.id}>
-                    <button
-                      type="button"
-                      className={`score-btn${service.getEventValue(p.id, episode, c.id) > 0 ? ' is-on' : ''}`}
-                      aria-pressed={service.getEventValue(p.id, episode, c.id) > 0}
-                      aria-label={`${c.label} for ${p.name}`}
-                      title={c.label}
-                      onClick={() => onToggleEvent(p.id, c.id)}
-                    >
+              </div>
+              <div className={`score-card-total${epTotal < 0 ? ' neg' : ''}`}>
+                {epTotal > 0 ? '+' : ''}{epTotal}
+                <span>pts</span>
+              </div>
+            </div>
+            <div className="score-card-events">
+              {scoringCategories.map(c => {
+                const on = service.getEventValue(p.id, episode, c.id) > 0
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className={`score-ev${on ? ' is-on' : ''}`}
+                    aria-pressed={on}
+                    onClick={() => onToggleEvent(p.id, c.id)}
+                  >
+                    <span className="score-ev-label">{c.label}</span>
+                    <span className={`score-ev-pts${c.points < 0 ? ' neg' : ''}`}>
                       {c.points >= 0 ? '+' : ''}{c.points}
-                    </button>
-                  </td>
-                ))}
-                <td className={`pts ${epTotal < 0 ? 'neg' : ''}`}>{epTotal}</td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
     </div>
-  </div>
   )
 }
 
