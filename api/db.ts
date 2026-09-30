@@ -25,6 +25,7 @@ export interface PlayerRow {
   photo: string | null
   managerName: string | null
   status: PlayerStatus
+  tribeId?: string | null
 }
 
 export interface ManagerRow { name: string; displayName: string | null }

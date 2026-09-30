@@ -1,5 +1,5 @@
 import { PLAYERS, type Player } from './players'
-import { PLAYER_TRIBES, TRIBES, type Tribe } from './tribes'
+import { PLAYER_TRIBES, TRIBES, type Tribe, type TribeId } from './tribes'
 import {
   SCORING_CATEGORIES,
   type ScoringCategory,
@@ -69,8 +69,10 @@ export class PlayerService {
             photo:       remote.photo      ?? base.photo,
             managerName: remote.managerName ?? base.managerName,
             // Re-stamped: this branch rebuilds from PLAYERS, not from the
-            // constructor's copy, so the tribe would otherwise be lost.
-            tribe:      PLAYER_TRIBES[base.id],
+            // constructor's copy, so the tribe would otherwise be lost. The
+            // server value wins when present so a commissioner reassignment
+            // made via the API is reflected.
+            tribe:      (remote.tribeId as TribeId | null | undefined) ?? PLAYER_TRIBES[base.id],
             status:      remote.status,
             votedOut:    remote.status !== 'active' && remote.status !== 'winner',
           }

@@ -8,7 +8,7 @@ export async function loadFullState(): Promise<FullState> {
     sql`SELECT id, name, color_name, color, sort_order FROM tribes ORDER BY sort_order, id`,
     sql`SELECT name, display_name FROM managers ORDER BY name`,
     sql`SELECT id, name, age, hometown, residence, occupation, about_me, photo,
-               manager_name, status
+               manager_name, status, tribe_id
         FROM players ORDER BY id`,
     sql`SELECT id, "group", label, points, sort_order
         FROM scoring_categories ORDER BY sort_order, id`,
@@ -45,6 +45,7 @@ export async function loadFullState(): Promise<FullState> {
       photo: r.photo == null ? null : String(r.photo),
       managerName: r.manager_name == null ? null : String(r.manager_name),
       status: (String(r.status) as PlayerStatus),
+      tribeId: r.tribe_id == null ? null : String(r.tribe_id),
     })),
     categories: categories.rows.map(r => ({
       id: String(r.id),

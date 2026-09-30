@@ -27,6 +27,8 @@ export interface StatePlayer {
   photo: string | null
   managerName: string | null
   status: PlayerStatus
+  /** Present when the row has a tribe assigned; null/omitted when not. */
+  tribeId?: string | null
 }
 
 export interface StateEvent {
