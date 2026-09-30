@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import type { PlayerService, Player } from '../data/playerService'
-import { buildRecap, groupLines } from '../data/recap'
+import { buildRecap, copyRecapText, groupLines } from '../data/recap'
 
 interface RecapTabProps {
   service: PlayerService
@@ -26,6 +26,7 @@ const RecapTab: React.FC<RecapTabProps> = ({
 }) => {
   const [draft, setDraft] = useState<string | null>(null)
   const [showAll, setShowAll] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const episodes = service.getScoredEpisodes()
   const savedNote = service.getRecapNote(episode)
@@ -90,7 +91,25 @@ const RecapTab: React.FC<RecapTabProps> = ({
             {recap.totalAwarded} points awarded across {recap.movers.length} castaways
           </p>
         </div>
-        <EpisodePicker episodes={episodes} episode={episode} onEpisodeChange={onEpisodeChange} />
+        <div className="recap-header-actions">
+          <button
+            type="button"
+            className="btn btn-neutral btn-sm"
+            onClick={() => {
+              void copyRecapText({
+                episode, recap, players, nameOf,
+                totalOf: (id) => service.getPlayerTotal(id),
+              }).then(ok => {
+                if (!ok) return
+                setCopied(true)
+                setTimeout(() => setCopied(false), 2000)
+              })
+            }}
+          >
+            {copied ? 'Copied ✓' : 'Copy for chat'}
+          </button>
+          <EpisodePicker episodes={episodes} episode={episode} onEpisodeChange={onEpisodeChange} />
+        </div>
       </div>
 
       {recap.top.length > 0 && (

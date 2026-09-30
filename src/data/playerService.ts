@@ -1,6 +1,7 @@
 import { PLAYERS, type Player } from './players'
 import { PLAYER_TRIBES, TRIBES, type Tribe, type TribeId } from './tribes'
 import { payoutFor } from './predictions'
+import { reportFailedWrite } from './storage'
 import {
   SCORING_CATEGORIES,
   type ScoringCategory,
@@ -264,7 +265,11 @@ export class PlayerService {
     )
     if (clamped > 0) this.events.push({ playerId, episode, categoryId, count: clamped })
     void this.backend.setEvent({ playerId, episode, categoryId, count: clamped })
-      .catch(err => console.error('[PlayerService] setEvent failed:', err))
+      .catch(err => reportFailedWrite(
+        'Save score',
+        err,
+        () => this.backend.setEvent({ playerId, episode, categoryId, count: clamped }),
+      ))
   }
 
   /** Convenience: booleans still use 0/1. */
@@ -281,7 +286,11 @@ export class PlayerService {
     p.status = status
     p.votedOut = status !== 'active' && status !== 'winner'
     void this.backend.setPlayerStatus(playerId, status)
-      .catch(err => console.error('[PlayerService] setPlayerStatus failed:', err))
+      .catch(err => reportFailedWrite(
+        'Save status',
+        err,
+        () => this.backend.setPlayerStatus(playerId, status),
+      ))
   }
 
   /** Back-compat helpers used by existing screens. */
@@ -306,7 +315,11 @@ export class PlayerService {
     this.overrides = this.overrides.filter(o => !(o.playerId === playerId && o.episode === episode))
     if (delta !== 0) this.overrides.push({ playerId, episode, delta, reason })
     void this.backend.setOverride({ playerId, episode, delta, reason })
-      .catch(err => console.error('[PlayerService] setOverride failed:', err))
+      .catch(err => reportFailedWrite(
+        'Save override',
+        err,
+        () => this.backend.setOverride({ playerId, episode, delta, reason }),
+      ))
   }
 
   // -------- Recap ------------------------------------------------------------
@@ -337,7 +350,11 @@ export class PlayerService {
   setRecapNote(episode: number, note: string): void {
     this.meta = { ...this.meta, [`recap_note_ep${episode}`]: note }
     void this.backend.setMeta(`recap_note_ep${episode}`, note)
-      .catch(err => console.error('[PlayerService] setRecapNote failed:', err))
+      .catch(err => reportFailedWrite(
+        'Save note',
+        err,
+        () => this.backend.setMeta(`recap_note_ep${episode}`, note),
+      ))
   }
 
   // -------- Season settings ---------------------------------------------------
@@ -356,7 +373,11 @@ export class PlayerService {
     const ep = Math.max(1, Math.floor(n))
     this.meta = { ...this.meta, current_episode: String(ep) }
     void this.backend.setMeta('current_episode', String(ep))
-      .catch(err => console.error('[PlayerService] setCurrentEpisode failed:', err))
+      .catch(err => reportFailedWrite(
+        'Set episode',
+        err,
+        () => this.backend.setMeta('current_episode', String(ep)),
+      ))
   }
 
   /** True when predictions are closed to new picks. */
@@ -367,7 +388,11 @@ export class PlayerService {
   setPredictionsLocked(locked: boolean): void {
     this.meta = { ...this.meta, predictions_locked: locked ? 'true' : 'false' }
     void this.backend.setMeta('predictions_locked', locked ? 'true' : 'false')
-      .catch(err => console.error('[PlayerService] setPredictionsLocked failed:', err))
+      .catch(err => reportFailedWrite(
+        'Update settings',
+        err,
+        () => this.backend.setMeta('predictions_locked', locked ? 'true' : 'false'),
+      ))
   }
 
   // -------- Predictions ------------------------------------------------------
@@ -399,7 +424,11 @@ export class PlayerService {
       this.predictions.push({ manager, episode, categoryId, targetPlayerId, locked: false, stake })
     }
     void this.backend.setPrediction({ manager, episode, categoryId, targetPlayerId, locked: false, stake })
-      .catch(err => console.error('[PlayerService] setPrediction failed:', err))
+      .catch(err => reportFailedWrite(
+        'Place bet',
+        err,
+        () => this.backend.setPrediction({ manager, episode, categoryId, targetPlayerId, locked: false, stake }),
+      ))
   }
 
   /**

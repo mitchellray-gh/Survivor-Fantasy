@@ -165,7 +165,111 @@ export function buildRecap(args: {
   }
 }
 
-/** Group the digest by scoring group, preserving rule order. */
+/**
+ * Render the digest as plain text for pasting into a group chat. This is the
+ * highest-leverage share affordance in the app: the recap only does its job if
+ * the league actually reads it.
+ */
+export function recapToText(args: {
+  episode: number
+  recap: Recap
+  nameOf: (id: number) => string
+  totalOf: (id: number) => number
+  allPlayers: Array<{ id: number; managerName: string }>
+}): string {
+  const { episode, recap, nameOf, totalOf, allPlayers } = args
+  const out: string[] = []
+
+  out.push(`*SURVIVOR FANTASY - EPISODE ${episode} RECAP*`)
+  out.push('')
+
+  for (const g of groupLines(recap.lines)) {
+    out.push(`*${g.group.toUpperCase()}*`)
+    for (const line of g.lines) {
+      const pts = `${line.points > 0 ? '+' : ''}${line.points}`
+      out.push(`  ${line.headline} (${pts})`)
+    }
+    out.push('')
+  }
+
+  for (const note of recap.notes) {
+    if (note) {
+      out.push(`*COMMISSIONER'S NOTES*`)
+      out.push(`  ${note}`)
+      out.push('')
+    }
+  }
+
+  const movers = [...recap.movers].sort((a, b) => b.delta - a.delta)
+  if (movers.length > 0) {
+    out.push('*BIGGEST MOVERS*')
+    for (const m of movers.slice(0, 5)) {
+      out.push(`  ${nameOf(m.playerId)} ${m.delta > 0 ? '+' : ''}${m.delta} (${totalOf(m.playerId)} total)`)
+    }
+    out.push('')
+  }
+
+  // Manager standings, best first.
+  const totals = new Map<string, number>()
+  for (const p of allPlayers) {
+    if (!p.managerName) continue
+    totals.set(p.managerName, (totals.get(p.managerName) ?? 0) + totalOf(p.id))
+  }
+  const board = [...totals.entries()].sort((a, b) => b[1] - a[1])
+  if (board.length > 0) {
+    out.push('*STANDINGS*')
+    board.forEach(([name, total], i) => {
+      out.push(`  ${i + 1}. ${name} - ${total} pts`)
+    })
+  }
+
+  return out.join('\n')
+}
+
+/** Copy text to the clipboard, with a legacy fallback. Resolves false on failure. */
+export async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+      return true
+    }
+  } catch {
+    // Fall through to the legacy path below.
+  }
+  try {
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.setAttribute('readonly', '')
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    const ok = document.execCommand('copy')
+    document.body.removeChild(ta)
+    return ok
+  } catch {
+    return false
+  }
+}
+
+export interface CopyRecapArgs {
+  episode: number
+  recap: Recap
+  players: Array<{ id: number; name: string; managerName: string }>
+  nameOf: (id: number) => string
+  totalOf: (id: number) => number
+}
+
+export function copyRecapText(args: CopyRecapArgs): Promise<boolean> {
+  return copyToClipboard(recapToText({
+    episode: args.episode,
+    recap: args.recap,
+    nameOf: args.nameOf,
+    totalOf: args.totalOf,
+    allPlayers: args.players,
+  }))
+}
+
 export function groupLines(lines: RecapLine[]): Array<{ group: string; lines: RecapLine[] }> {
   const out: Array<{ group: string; lines: RecapLine[] }> = []
   for (const line of lines) {

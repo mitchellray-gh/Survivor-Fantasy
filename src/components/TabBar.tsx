@@ -1,7 +1,12 @@
 import React from 'react'
 import './TabBar.css'
 
-export type TabId = 'dashboard' | 'players' | 'tribes' | 'teams' | 'recap' | 'predictions' | 'scoring'
+/**
+ * Five tabs. Tribes and Teams used to be their own destinations, which made
+ * the bar 7 across and cramped the labels on a phone. Both are now folded in:
+ * tribes are a filter on Cast, and teams are standings on Home.
+ */
+export type TabId = 'dashboard' | 'recap' | 'players' | 'predictions' | 'scoring'
 
 interface TabBarProps {
   active: TabId
@@ -61,8 +66,6 @@ const TABS: TabDef[] = [
   { id: 'dashboard',   label: 'Home',    icon: IC.trophy },
   { id: 'recap',       label: 'Recap',   icon: IC.news },
   { id: 'players',     label: 'Cast',    icon: IC.users },
-  { id: 'tribes',      label: 'Tribes',  icon: IC.flag },
-  { id: 'teams',       label: 'Teams',   icon: IC.shield },
   { id: 'predictions', label: 'Predict', icon: IC.eye },
   { id: 'scoring',     label: 'Score',   icon: IC.check },
 ]

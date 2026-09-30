@@ -8,6 +8,8 @@ interface PlayerCardProps {
   totalPoints?: number
   onVoteOut?: (playerId: number) => void
   onUnvoteOut?: (playerId: number) => void
+  /** True when this card is the pending vote-out confirmation. */
+  confirmingVoteOut?: boolean
   showVoteControls?: boolean
   /** If true, render the collapsed row and expand on tap. Default: true. */
   collapsible?: boolean
@@ -42,6 +44,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   totalPoints,
   onVoteOut,
   onUnvoteOut,
+  confirmingVoteOut,
   showVoteControls = false,
   collapsible = true,
 }) => {
@@ -96,8 +99,11 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
           {showVoteControls && (
             <div className="player-row-actions">
               {!player.votedOut && onVoteOut && (
-                <button className="btn btn-danger" onClick={() => onVoteOut(player.id)}>
-                  Mark as voted out
+                <button
+                  className={confirmingVoteOut ? 'btn btn-danger' : 'btn btn-neutral'}
+                  onClick={() => onVoteOut(player.id)}
+                >
+                  {confirmingVoteOut ? 'Tap again to confirm' : 'Mark as voted out'}
                 </button>
               )}
               {player.votedOut && onUnvoteOut && (

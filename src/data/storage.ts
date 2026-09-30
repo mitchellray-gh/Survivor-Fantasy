@@ -269,6 +269,67 @@ export class RemoteBackend implements StorageBackend {
   setMeta(key: string, value: string):                                 Promise<void> { return postJson(`${this.baseUrl}/meta`, { key, value }) }
 }
 
+// ---- Failed-write reporting -------------------------------------------------
+//
+// Mutations are optimistic: the UI updates immediately and the POST happens in
+// the background. That is the right call for a fast tap-heavy UI, but a failed
+// write used to be swallowed into console.error, leaving the user looking at a
+// toggle that says "saved" when it never reached the server.
+//
+// The service now collects failures here so the UI can surface a toast and
+// offer a retry. This is deliberately module-level rather than instance state:
+// PlayerService instances are stable, and this is transport-level concern.
+
+export interface FailedWrite {
+  id: number
+  /** What the user was doing, e.g. "Save score". */
+  label: string
+  message: string
+  /** Re-attempts the write. Null when it cannot be retried safely. */
+  retry: (() => void) | null
+  at: number
+}
+
+let failed: FailedWrite[] = []
+let nextId = 1
+const listeners = new Set<(f: FailedWrite[]) => void>()
+
+function emit(): void {
+  for (const fn of listeners) fn(failed)
+}
+
+export function reportFailedWrite(label: string, err: unknown, retry: (() => void) | null): void {
+  const message = err instanceof Error ? err.message : String(err)
+  const entry: FailedWrite = { id: nextId++, label, message, retry, at: Date.now() }
+  // Keep the list short; the newest failure is the one that matters.
+  failed = [entry, ...failed].slice(0, 5)
+  emit()
+}
+
+export function getFailedWrites(): FailedWrite[] {
+  return failed
+}
+
+/** Dismiss one failure, or all of them. */
+export function clearFailedWrite(id?: number): void {
+  failed = id == null ? [] : failed.filter(f => f.id !== id)
+  emit()
+}
+
+/** Re-run a failed write and drop it from the list. */
+export function retryFailedWrite(id: number): void {
+  const entry = failed.find(f => f.id === id)
+  if (!entry) return
+  clearFailedWrite(id)
+  if (entry.retry) entry.retry()
+}
+
+/** Subscribe to failures. Returns an unsubscribe function. */
+export function onFailedWrite(fn: (f: FailedWrite[]) => void): () => void {
+  listeners.add(fn)
+  return () => { listeners.delete(fn) }
+}
+
 // ---- Backend selection -----------------------------------------------------
 
 /**

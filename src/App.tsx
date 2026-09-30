@@ -4,11 +4,12 @@ import MyLeague from './components/MyLeague'
 import PlayerCard from './components/PlayerCard'
 import PredictionsTab from './components/PredictionsTab'
 import RecapTab from './components/RecapTab'
+import SaveAlert from './components/SaveAlert'
 import ScoringTab from './components/ScoringTab'
-import TribesPanel from './components/TribesPanel'
+import type { TribeId } from './data/tribes'
 import TabBar, { type TabId } from './components/TabBar'
 import { PlayerService, type ScoringCategoryId, type PlayerStatus } from './data/playerService'
-import { getAdminKey } from './data/storage'
+import { getAdminKey, onFailedWrite, type FailedWrite } from './data/storage'
 import AdminDrawer from './components/AdminDrawer'
 import Dossier from './components/Dossier'
 import './App.css'
@@ -40,10 +41,8 @@ function saveMyManager(name: string | null): void {
 }
 const TAB_TITLES: Record<TabId, string> = {
   dashboard:   'Standings',
-  players:     'Castaways',
-  tribes:      'Tribes',
-  teams:       'Teams',
   recap:       'Recap',
+  players:     'Castaways',
   predictions: 'Predictions',
   scoring:     'Score Episode',
 }
@@ -81,6 +80,12 @@ function App() {
   const [adminOpen, setAdminOpen] = useState(false)
   const [myManager, setMyManager] = useState<string | null>(loadMyManager)
 
+  // Cast tab filters. Tribes and Teams were separate tabs; both are folded in
+  // here as filters so the bottom bar stays at five.
+  const [castTribe, setCastTribe] = useState<TribeId | null>(null)
+  const [castManager, setCastManager] = useState<string | null>(null)
+  const [expandedManager, setExpandedManager] = useState<string | null>(null)
+
   const onSelectManager = (name: string) => {
     setMyManager(name); saveMyManager(name); bump()
   }
@@ -88,12 +93,31 @@ function App() {
     setMyManager(null); saveMyManager(null); bump()
   }
 
+  // Clears a pending confirm when the user navigates away from it.
+  useEffect(() => { setConfirmVoteOut(null) }, [activeTab])
+
   const players = service.getPlayers()
   const managers = service.getManagers()
   const cats = service.getScoringCategories()
 
-  const onVoteOut = (id: number) => { service.voteOutPlayer(id); bump() }
-  const onUnvoteOut = (id: number) => { service.unvoteOutPlayer(id); bump() }
+  // Vote-out is destructive and reachable in two places, so a stray tap mid
+  // scroll could permanently change someone's status. Confirm the first tap.
+  const [confirmVoteOut, setConfirmVoteOut] = useState<number | null>(null)
+
+  const onVoteOut = (id: number) => {
+    if (confirmVoteOut === id) {
+      service.voteOutPlayer(id)
+      setConfirmVoteOut(null)
+    } else {
+      setConfirmVoteOut(id)
+      return
+    }
+    bump()
+  }
+  const onUnvoteOut = (id: number) => {
+    setConfirmVoteOut(null)
+    service.unvoteOutPlayer(id); bump()
+  }
   const onToggleEvent = (playerId: number, catId: ScoringCategoryId) => {
     service.toggleEvent(playerId, scoringEpisode, catId); bump()
   }
@@ -111,6 +135,19 @@ function App() {
     service.setPrediction(predictionManager, predictionEpisode, catId, targetPlayerId, stake); bump()
   }
 
+  // ---- Failed writes + resync ----------------------------------------------
+  const [failures, setFailures] = useState<FailedWrite[]>([])
+
+  useEffect(() => onFailedWrite(setFailures), [])
+
+  /**
+   * Re-read authoritative state. Used after a discarded/retry failure so the
+   * UI stops showing an optimistic change that never persisted.
+   */
+  const resync = () => {
+    void service.hydrate().then(bump).catch(() => bump())
+  }
+
   // "Why does the desk like them?" - opens a persona dossier in the drawer.
   const [dossierPlayerId, setDossierPlayerId] = useState<number | null>(null)
   const dossierPlayer = dossierPlayerId == null ? null : players.find(p => p.id === dossierPlayerId) ?? null
@@ -124,19 +161,69 @@ function App() {
     })).sort((a, b) => b.total - a.total || b.remaining - a.remaining || a.name.localeCompare(b.name))
   }, [managers, service, version])
 
+  const castVisible = useMemo(() => {
+    void version
+    return players.filter(p =>
+      (castTribe === null || p.tribe === castTribe) &&
+      (castManager === null || p.managerName === castManager))
+  }, [players, castTribe, castManager, version])
+
+  // The episode the league is officially on, and whether the tab you're looking
+  // at has drifted from it.
+  const leagueEpisode = hydrated ? service.getCurrentEpisode() : 1
+  const activeTabEpisode =
+    activeTab === 'scoring' ? scoringEpisode
+    : activeTab === 'predictions' ? predictionEpisode
+    : activeTab === 'recap' ? recapEpisode
+    : null
+  const showEpisodePill = activeTabEpisode !== null && activeTabEpisode !== leagueEpisode
+
   const storageBadge = (
     <span
-      className={`storage-badge ${service.isRemote() ? 'remote' : 'local'}`}
-      title={service.isRemote() ? 'Shared league database' : 'Local to this browser only'}
+      className={`storage-badge ${service.isRemote() ? 'remote' : 'local'}${failures.length > 0 ? ' is-error' : ''}`}
+      title={
+        failures.length > 0
+          ? `${failures.length} change(s) failed to save`
+          : service.isRemote()
+            ? `Shared league database - now on Episode ${leagueEpisode}`
+            : 'Local to this browser only'
+      }
     >
       <span className="badge-dot" aria-hidden="true" />
-      {!hydrated ? 'Loading\u2026' : service.isRemote() ? 'Synced' : 'Local'}
+      {!hydrated ? 'Loading\u2026'
+        : failures.length > 0 ? `${failures.length} unsaved`
+        : service.isRemote() ? 'Synced' : 'Local'}
     </span>
   )
 
   return (
     <div className="app">
-      <Header title={TAB_TITLES[activeTab]} subtitle="Survivor Season 51" right={storageBadge} onOpenAdmin={() => setAdminOpen(true)} />
+      <Header
+        title={TAB_TITLES[activeTab]}
+        subtitle="Survivor Season 51"
+        right={(
+          <span className="header-right-group">
+            {showEpisodePill && (
+              <button
+                type="button"
+                className="episode-pill is-drift"
+                onClick={() => {
+                  setScoringEpisode(leagueEpisode)
+                  setPredictionEpisode(leagueEpisode)
+                  setRecapEpisode(leagueEpisode)
+                }}
+                title="Jump back to the current episode"
+              >
+                EP {activeTabEpisode} &rarr; EP {leagueEpisode}
+              </button>
+            )}
+            {storageBadge}
+          </span>
+        )}
+        onOpenAdmin={() => setAdminOpen(true)}
+      />
+
+      <SaveAlert failures={failures} onResync={resync} />
 
       <main className="app-main">
         {activeTab === 'dashboard' && (
@@ -152,19 +239,50 @@ function App() {
             <div className="hero-note">Season 51 premieres Wed Sept 23, 2026 on CBS &amp; Paramount+.</div>
 
             <div className="list-card">
-              {standings.map((s, i) => (
-                <div key={s.name} className="standings-row">
-                  <div className={`rank rank-${Math.min(i + 1, 4)}`}>{i + 1}</div>
-                  <div className="standings-main">
-                    <div className="standings-name">{s.name}</div>
-                    <div className="standings-meta">{s.remaining}/{s.players.length} alive</div>
+              {standings.map((s, i) => {
+                const open = expandedManager === s.name
+                return (
+                  <div key={s.name} className="standings-group">
+                    <button
+                      type="button"
+                      className="standings-row standings-toggle"
+                      onClick={() => setExpandedManager(open ? null : s.name)}
+                      aria-expanded={open}
+                    >
+                      <div className={`rank rank-${Math.min(i + 1, 4)}`}>{i + 1}</div>
+                      <div className="standings-main">
+                        <div className="standings-name">{s.name}</div>
+                        <div className="standings-meta">
+                          {s.remaining}/{s.players.length} alive
+                        </div>
+                      </div>
+                      <div className="standings-pts">
+                        <span className="pts-value">{s.total}</span>
+                        <span className="pts-label">pts</span>
+                      </div>
+                      <span className={`standings-caret${open ? ' is-open' : ''}`} aria-hidden="true">›</span>
+                    </button>
+                    {open && (
+                      <div className="standings-roster">
+                        {s.players.map(p => (
+                          <div key={p.id} className={`mini-player${p.votedOut ? ' is-out' : ''}`}>
+                            <img src={p.photo} alt="" />
+                            <div className="mini-player-id">
+                              <div className="mini-player-name">{p.name}</div>
+                              <div className="mini-player-tribe">
+                                {p.tribe ? p.tribe : 'exile'}
+                              </div>
+                            </div>
+                            <div className="mini-player-pts">
+                              {service.getPlayerTotal(p.id)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <div className="standings-pts">
-                    <span className="pts-value">{s.total}</span>
-                    <span className="pts-label">pts</span>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
 
             <details className="rules-details" open={rulesOpen} onToggle={e => setRulesOpen((e.target as HTMLDetailsElement).open)}>
@@ -190,46 +308,66 @@ function App() {
 
         {activeTab === 'players' && (
           <section className="tab-panel">
-            <div className="list-card">
-              {players.map(p => (
-                <PlayerCard key={p.id} player={p} managerLabel={p.managerName} totalPoints={service.getPlayerTotal(p.id)} onVoteOut={onVoteOut} onUnvoteOut={onUnvoteOut} showVoteControls />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {activeTab === 'tribes' && (
-          <section className="tab-panel">
-            <div className="hero-note">
-              The cast is split into competing tribes. Tribal loyalty is the
-              strategic core of Survivor, so a rival drafted onto your tribe is
-              a real cost.
-            </div>
-            <TribesPanel service={service} onVoteOut={onVoteOut} onUnvoteOut={onUnvoteOut} />
-          </section>
-        )}
-
-        {activeTab === 'teams' && (
-          <section className="tab-panel">
-            {managers.map(m => (
-              <div key={m.name} className="team-block">
-                <div className="team-header">
-                  <div className="team-header-main">
-                    <h3>{m.name}</h3>
-                    <div className="team-sub">{m.players.filter(p => !p.votedOut).length}/{m.players.length} alive</div>
-                  </div>
-                  <div className="team-pts">
-                    <span className="pts-value">{service.getManagerTotal(m.name)}</span>
-                    <span className="pts-label">pts</span>
-                  </div>
-                </div>
-                <div className="list-card">
-                  {m.players.map(p => (
-                    <PlayerCard key={p.id} player={p} managerLabel={m.name} totalPoints={service.getPlayerTotal(p.id)} onVoteOut={onVoteOut} onUnvoteOut={onUnvoteOut} showVoteControls />
+            <div className="cast-filters">
+              <div className="cast-filter-row">
+                <span className="cast-filter-label">Tribe</span>
+                <div className="cast-chips">
+                  <button
+                    type="button"
+                    className={`cast-chip${castTribe === null ? ' is-active' : ''}`}
+                    onClick={() => setCastTribe(null)}
+                  >
+                    All
+                  </button>
+                  {service.getTribes().map(t => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      className={`cast-chip${castTribe === t.id ? ' is-active' : ''}`}
+                      style={{ '--tribe-color': t.color } as React.CSSProperties}
+                      onClick={() => setCastTribe(castTribe === t.id ? null : t.id)}
+                    >
+                      {t.name}
+                    </button>
                   ))}
                 </div>
               </div>
-            ))}
+              <div className="cast-filter-row">
+                <span className="cast-filter-label">Manager</span>
+                <div className="cast-chips">
+                  <button
+                    type="button"
+                    className={`cast-chip${castManager === null ? ' is-active' : ''}`}
+                    onClick={() => setCastManager(null)}
+                  >
+                    All
+                  </button>
+                  {managers.map(m => (
+                    <button
+                      key={m.name}
+                      type="button"
+                      className={`cast-chip${castManager === m.name ? ' is-active' : ''}`}
+                      onClick={() => setCastManager(castManager === m.name ? null : m.name)}
+                    >
+                      {m.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="cast-count">
+              {castVisible.length} of {players.length} castaways
+            </div>
+
+            <div className="list-card">
+              {castVisible.map(p => (
+                <PlayerCard key={p.id} player={p} managerLabel={p.managerName} totalPoints={service.getPlayerTotal(p.id)} onVoteOut={onVoteOut} onUnvoteOut={onUnvoteOut} confirmingVoteOut={confirmVoteOut === p.id} showVoteControls />
+              ))}
+              {castVisible.length === 0 && (
+                <p className="cast-empty">No castaways match those filters.</p>
+              )}
+            </div>
           </section>
         )}
 
@@ -275,7 +413,7 @@ function App() {
         )}
       </main>
 
-      <TabBar active={activeTab} onChange={setActiveTab} counts={{ players: players.length, teams: managers.length }} />
+      <TabBar active={activeTab} onChange={setActiveTab} counts={{ players: players.length, scoring: service.getScoredEpisodes().length }} />
 
       <AdminDrawer
         isOpen={adminOpen}

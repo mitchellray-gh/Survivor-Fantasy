@@ -1549,6 +1549,186 @@
    the whole board recolours from the data rather than three copies of the CSS.
    ============================================================================ */
 
+/* ============================================================================
+   FAILED-WRITE BANNER. Sits under the header until resolved - a transient
+   toast is too easy to miss while scoring a whole episode.
+   ============================================================================ */
+
+.save-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 12px 10px;
+  padding: 10px 12px;
+  background: #2a1414;
+  border: 1px solid #7f1d1d;
+  border-left: 3px solid #f87171;
+  border-radius: var(--radius-md);
+}
+.save-alert-icon {
+  width: 20px; height: 20px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #f87171;
+  color: #2a1414;
+  font-size: 13px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+}
+.save-alert-body { flex: 1; min-width: 0; }
+.save-alert-title { font-size: 12px; font-weight: 800; color: #fca5a5; }
+.save-alert-msg {
+  font-size: 11px; color: #d5b0b0; line-height: 1.4; margin-top: 2px;
+  word-break: break-word;
+}
+.save-alert-more { font-size: 10px; color: #a67f7f; margin-top: 3px; }
+.save-alert-actions { display: flex; gap: 5px; flex-shrink: 0; }
+.save-alert-actions .btn-sm { min-height: 28px; padding: 0 10px; font-size: 11px; }
+
+.storage-badge.is-error { color: #fca5a5; }
+.storage-badge.is-error .badge-dot { background: #f87171; }
+
+/* Header episode pill: only shown when the open tab has drifted off the
+   league's current episode. Clicking snaps everything back. */
+.header-right-group { display: flex; align-items: center; gap: 7px; }
+.episode-pill {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  padding: 4px 7px;
+  border-radius: 999px;
+  border: 1px solid #7c2d12;
+  background: #7c2d12;
+  color: #fdba74;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.episode-pill:active { transform: translateY(1px); }
+
+/* Cast tab filters (tribes and managers folded in from their old tabs). */
+.cast-filters {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cast-filter-row { display: flex; align-items: flex-start; gap: 8px; }
+.cast-filter-label {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-dim);
+  min-width: 58px;
+  padding-top: 6px;
+  flex-shrink: 0;
+}
+.cast-chips { display: flex; gap: 5px; flex-wrap: wrap; }
+.cast-chip {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated-2);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.cast-chip:hover { border-color: var(--border-strong); color: var(--text); }
+.cast-chip.is-active {
+  background: var(--tribe-color, var(--primary));
+  border-color: var(--tribe-color, var(--primary));
+  color: white;
+}
+.cast-count {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-dim);
+  margin: 0 2px 8px;
+}
+.cast-empty {
+  padding: 18px 12px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Standings rows are now expandable to reveal the manager's roster. */
+.standings-toggle {
+  width: 100%;
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  position: relative;
+  padding-right: 28px;
+}
+.standings-toggle:active { transform: translateY(1px); }
+.standings-caret {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 17px;
+  color: var(--text-dim);
+  transition: transform 0.15s ease;
+}
+.standings-caret.is-open { transform: translateY(-50%) rotate(90deg); }
+.standings-group + .standings-group { border-top: 1px solid var(--border); }
+.standings-roster {
+  padding: 8px 12px 10px 14px;
+  background: var(--bg-elevated-2);
+  border-top: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 5px;
+}
+.mini-player {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 6px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  min-width: 0;
+}
+.mini-player.is-out { opacity: 0.45; }
+.mini-player img {
+  width: 22px; height: 22px; border-radius: 50%;
+  object-fit: cover; flex-shrink: 0;
+}
+.mini-player-id { flex: 1; min-width: 0; }
+.mini-player-name {
+  font-size: 11px; font-weight: 700; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mini-player-tribe {
+  font-size: 9px; color: var(--text-dim); text-transform: capitalize;
+}
+.mini-player-pts { font-size: 11px; font-weight: 800; color: var(--accent); }
+
+.key-test { margin: 8px 0 0; font-size: 11px; font-weight: 700; }
+.key-test-ok { color: #4ade80; }
+.key-test-bad { color: #f87171; }
+
+.recap-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ============================================================================
+   TRIBES. --tribe-color is set inline per tribe from src/data/tribes.ts, so
+   the whole board recolours from the data rather than three copies of the CSS.
+   ============================================================================ */
+
 .tribes {
   display: flex;
   flex-direction: column;

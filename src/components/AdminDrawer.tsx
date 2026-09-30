@@ -35,6 +35,7 @@ function AdminDrawer({ isOpen, onClose, players, onPlayerStatusChange, onOverrid
   const [reason, setReason] = useState('')
   const [keyDraft, setKeyDraft] = useState(() => getAdminKey())
   const [keySaved, setKeySaved] = useState(false)
+  const [keyTest, setKeyTest] = useState<'idle' | 'ok' | 'bad'>('idle')
   const [seasonEpisode, setSeasonEpisode] = useState(() => service.getCurrentEpisode())
 
   if (!isOpen) return null
@@ -44,6 +45,30 @@ function AdminDrawer({ isOpen, onClose, players, onPlayerStatusChange, onOverrid
     setSeasonEpisode(ep)
     service.setCurrentEpisode(ep)
     onSettingsChanged()
+  }
+
+  /**
+   * Ping an admin-guarded endpoint with the stored key. Without this, a wrong
+   * key is only discovered when a save silently 401s.
+   */
+  const testKey = async () => {
+    setKeyTest('idle')
+    try {
+      const res = await fetch('/api/state', { headers: { 'X-Admin-Key': getAdminKey() } })
+      if (res.ok) {
+        // GET is open, so a 200 proves nothing. Hit a guarded write instead.
+        const probe = await fetch('/api/meta', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Admin-Key': getAdminKey() },
+          body: JSON.stringify({ key: 'key_test', value: String(Date.now()) }),
+        })
+        setKeyTest(probe.status === 401 ? 'bad' : probe.ok ? 'ok' : 'bad')
+      } else {
+        setKeyTest('bad')
+      }
+    } catch {
+      setKeyTest('bad')
+    }
   }
 
   const handleSaveKey = (e: FormEvent<HTMLFormElement>) => {
@@ -155,10 +180,20 @@ function AdminDrawer({ isOpen, onClose, players, onPlayerStatusChange, onOverrid
                     onChange={e => setKeyDraft(e.target.value)}
                   />
                 </div>
-                <button type="submit" className="btn btn-primary">
+                <button type="button" className="btn btn-primary">
                   {keySaved ? 'Saved ✓' : 'Save key'}
                 </button>
+                <button type="button" className="btn btn-neutral" onClick={() => void testKey()}>
+                  Test key
+                </button>
               </form>
+              {keyTest !== 'idle' && (
+                <p className={`key-test key-test-${keyTest}`}>
+                  {keyTest === 'ok'
+                    ? '✓ Key works. You can save.'
+                    : '✗ Key rejected. Scores will not save until it is correct.'}
+                </p>
+              )}
               <p className="drawer-help">
                 Needed once for scoring, status changes, and overrides to write to the
                 shared database. Stored for this browser tab only.
