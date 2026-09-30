@@ -86,6 +86,8 @@ export interface StorageBackend {
   setPlayerManager(playerId: number, managerName: string | null): Promise<void>
   setOverride(o: StateOverride): Promise<void>
   setPrediction(p: StatePrediction): Promise<void>
+  /** Free-form key/value writes, e.g. commissioner recap notes. */
+  setMeta(key: string, value: string): Promise<void>
 }
 
 // ---- LocalStorage backend --------------------------------------------------
@@ -176,6 +178,12 @@ export class LocalStorageBackend implements StorageBackend {
     if (p.targetPlayerId !== null) s.predictions.push({ ...p })
     this.write(s)
   }
+
+  async setMeta(key: string, value: string): Promise<void> {
+    const s = this.read()
+    s.meta = { ...s.meta, [key]: value }
+    this.write(s)
+  }
 }
 
 // ---- Remote backend (Vercel Postgres via /api/*) ---------------------------
@@ -258,6 +266,7 @@ export class RemoteBackend implements StorageBackend {
   setPlayerManager(id: number, managerName: string | null):            Promise<void> { return postJson(`${this.baseUrl}/players`, { id, managerName }) }
   setOverride(o: StateOverride):                                       Promise<void> { return postJson(`${this.baseUrl}/overrides`, o) }
   setPrediction(p: StatePrediction):                                   Promise<void> { return postJson(`${this.baseUrl}/predictions`, p) }
+  setMeta(key: string, value: string):                                 Promise<void> { return postJson(`${this.baseUrl}/meta`, { key, value }) }
 }
 
 // ---- Backend selection -----------------------------------------------------

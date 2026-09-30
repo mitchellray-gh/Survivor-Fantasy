@@ -124,6 +124,9 @@ export class PlayerService {
   getPlayers(): Player[] { return this.players }
   getPlayerById(id: number): Player | undefined { return this.players.find(p => p.id === id) }
 
+  /** Raw scored events. The recap reads these to build its digest. */
+  getEvents(): StateEvent[] { return this.events }
+
   /** Tribe definitions in display order. */
   getTribes(): Tribe[] { return TRIBES }
 
@@ -304,6 +307,37 @@ export class PlayerService {
     if (delta !== 0) this.overrides.push({ playerId, episode, delta, reason })
     void this.backend.setOverride({ playerId, episode, delta, reason })
       .catch(err => console.error('[PlayerService] setOverride failed:', err))
+  }
+
+  // -------- Recap ------------------------------------------------------------
+
+  /** Every episode we have any scored data for, oldest first. */
+  getScoredEpisodes(): number[] {
+    const eps = new Set<number>()
+    for (const e of this.events) if (e.count > 0) eps.add(e.episode)
+    for (const o of this.overrides) eps.add(o.episode)
+    return [...eps].sort((a, b) => a - b)
+  }
+
+  /** Per-episode point swings for one player across the whole season. */
+  getPlayerEpisodeHistory(playerId: number): Array<{ episode: number; delta: number }> {
+    return this.getScoredEpisodes()
+      .map(episode => ({ episode, delta: this.getPlayerEpisodeTotal(playerId, episode) }))
+      .filter(h => h.delta !== 0)
+  }
+
+  /**
+   * Commissioner's free-text note for an episode, stored in the meta bag so it
+   * needs no schema change. Used for near-misses that earn no points.
+   */
+  getRecapNote(episode: number): string {
+    return this.meta[`recap_note_ep${episode}`] ?? ''
+  }
+
+  setRecapNote(episode: number, note: string): void {
+    this.meta = { ...this.meta, [`recap_note_ep${episode}`]: note }
+    void this.backend.setMeta(`recap_note_ep${episode}`, note)
+      .catch(err => console.error('[PlayerService] setRecapNote failed:', err))
   }
 
   // -------- Predictions ------------------------------------------------------

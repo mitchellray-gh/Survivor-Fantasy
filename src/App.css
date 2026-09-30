@@ -1343,7 +1343,144 @@
 .chip-bal.neg { color: #f87171; }
 
 /* ============================================================================
-   TRIBES. --tribe-color is set inline per tribe from src/data/tribes.ts, so
+   WEEKLY RECAP. Reads as a newsletter: headline movers, then the story grouped
+   by scoring rule, then per-player movement with season sparklines.
+   ============================================================================ */
+
+.recap { display: flex; flex-direction: column; gap: 14px; }
+
+.recap-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap;
+}
+.recap-header h2 { margin: 0; font-size: 19px; font-weight: 800; }
+.recap-sub { margin: 2px 0 0; font-size: 12px; color: var(--text-muted); }
+
+.recap-picker { display: flex; gap: 4px; flex-wrap: wrap; }
+.recap-pill {
+  font-size: 10px; font-weight: 800; letter-spacing: 0.4px;
+  padding: 5px 9px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--bg-elevated);
+  color: var(--text-muted); cursor: pointer;
+}
+.recap-pill.is-active { background: var(--primary); border-color: var(--primary); color: white; }
+
+.recap-empty {
+  padding: 22px 14px; text-align: center;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.recap-empty p { margin: 0 0 6px; font-size: 13px; }
+
+.recap-movers {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px;
+}
+.recap-mover {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--accent);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}
+.recap-mover img {
+  width: 34px; height: 34px; border-radius: 50%; object-fit: cover;
+  border: 1px solid var(--border); flex-shrink: 0;
+}
+.recap-mover-id { flex: 1; min-width: 0; }
+.recap-mover-name {
+  font-size: 12px; font-weight: 800; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.recap-mover-total { font-size: 10px; color: var(--text-dim); }
+.recap-delta {
+  font-size: 17px; font-weight: 800; flex-shrink: 0;
+}
+.recap-delta.pos { color: #4ade80; }
+.recap-delta.neg { color: #f87171; }
+.recap-delta.flat { color: var(--text-dim); font-size: 13px; }
+
+.recap-group {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.recap-group-title {
+  margin: 0; padding: 9px 12px;
+  font-size: 10px; font-weight: 800; letter-spacing: 0.7px;
+  text-transform: uppercase; color: var(--text-muted);
+  background: var(--bg-elevated-2);
+  border-bottom: 1px solid var(--border);
+}
+.recap-table-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: var(--bg-elevated-2); border-bottom: 1px solid var(--border);
+}
+.recap-table-head .recap-group-title { border-bottom: none; }
+
+.recap-item { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.recap-item:last-child { border-bottom: none; }
+.recap-item-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+}
+.recap-item-label {
+  font-size: 10px; font-weight: 700; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.4px;
+}
+.recap-item-pts { font-size: 13px; font-weight: 800; color: #4ade80; }
+.recap-item-pts.neg { color: #f87171; }
+.recap-item-text {
+  margin: 3px 0 0; font-size: 13px; line-height: 1.45; color: var(--text);
+}
+.recap-faces { display: flex; gap: 3px; margin-top: 7px; flex-wrap: wrap; align-items: center; }
+.recap-faces img {
+  width: 22px; height: 22px; border-radius: 50%;
+  object-fit: cover; border: 1px solid var(--border);
+}
+.recap-more { font-size: 10px; color: var(--text-dim); font-weight: 700; }
+
+.recap-note { padding: 10px 12px; min-height: 64px; font-size: 12px; resize: vertical; }
+.recap-note-actions { display: flex; gap: 6px; padding: 0 12px 10px; }
+.recap-group .drawer-help { padding: 10px 12px; margin: 0; }
+
+.recap-rows { display: flex; flex-direction: column; }
+.recap-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 12px; border-bottom: 1px solid var(--border);
+}
+.recap-row:last-child { border-bottom: none; }
+.recap-row.is-flat { opacity: 0.5; }
+.recap-row img {
+  width: 26px; height: 26px; border-radius: 50%;
+  object-fit: cover; border: 1px solid var(--border); flex-shrink: 0;
+}
+.recap-row-id { flex: 1; min-width: 0; }
+.recap-row-name {
+  font-size: 12px; font-weight: 700; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.recap-row-mgr { font-size: 9px; color: var(--text-dim); }
+.recap-row-total {
+  font-size: 12px; font-weight: 800; color: var(--text-muted);
+  width: 34px; text-align: right; flex-shrink: 0;
+}
+.recap-row .recap-delta { width: 40px; text-align: right; font-size: 13px; }
+
+.spark {
+  display: flex; align-items: flex-end; gap: 2px;
+  width: 54px; height: 20px; flex-shrink: 0;
+}
+.spark.is-empty { background: none; }
+.spark-bar {
+  flex: 1; min-height: 3px;
+  background: #4ade80; border-radius: 1px;
+}
+.spark-bar.is-neg { background: #f87171; }
+.spark-bar.is-zero { background: var(--border-strong); }
+
+
    the whole board recolours from the data rather than three copies of the CSS.
    ============================================================================ */
 

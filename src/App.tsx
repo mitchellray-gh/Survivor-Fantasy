@@ -3,10 +3,12 @@ import Header from './components/Header'
 import MyLeague from './components/MyLeague'
 import PlayerCard from './components/PlayerCard'
 import PredictionsTab from './components/PredictionsTab'
+import RecapTab from './components/RecapTab'
 import ScoringTab from './components/ScoringTab'
 import TribesPanel from './components/TribesPanel'
 import TabBar, { type TabId } from './components/TabBar'
 import { PlayerService, type ScoringCategoryId, type PlayerStatus } from './data/playerService'
+import { getAdminKey } from './data/storage'
 import AdminDrawer from './components/AdminDrawer'
 import Dossier from './components/Dossier'
 import './App.css'
@@ -41,6 +43,7 @@ const TAB_TITLES: Record<TabId, string> = {
   players:     'Castaways',
   tribes:      'Tribes',
   teams:       'Teams',
+  recap:       'Recap',
   predictions: 'Predictions',
   scoring:     'Score Episode',
 }
@@ -60,6 +63,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<TabId>('dashboard')
   const [scoringEpisode, setScoringEpisode] = useState(1)
   const [predictionEpisode, setPredictionEpisode] = useState(1)
+  const [recapEpisode, setRecapEpisode] = useState(1)
   const [predictionManager, setPredictionManager] = useState<string | null>(null)
   const [rulesOpen, setRulesOpen] = useState(false)
   const [adminOpen, setAdminOpen] = useState(false)
@@ -215,6 +219,18 @@ function App() {
               </div>
             ))}
           </section>
+        )}
+
+        {activeTab === 'recap' && (
+          <RecapTab
+            service={service}
+            players={players}
+            episode={recapEpisode}
+            onEpisodeChange={setRecapEpisode}
+            canEdit={getAdminKey().length > 0}
+            onSaveNote={(ep, note) => { service.setRecapNote(ep, note); bump() }}
+            version={version}
+          />
         )}
 
         {activeTab === 'predictions' && (

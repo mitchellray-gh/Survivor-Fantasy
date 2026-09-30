@@ -1,7 +1,7 @@
 import React from 'react'
 import './TabBar.css'
 
-export type TabId = 'dashboard' | 'players' | 'tribes' | 'teams' | 'predictions' | 'scoring'
+export type TabId = 'dashboard' | 'players' | 'tribes' | 'teams' | 'recap' | 'predictions' | 'scoring'
 
 interface TabBarProps {
   active: TabId
@@ -49,10 +49,17 @@ const IC = {
       <path d="M4 22V4M4 4h11l-2 3 2 3H4" />
     </svg>
   ),
+  news: (
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 4h13a1 1 0 0 1 1 1v14H5a1 1 0 0 1-1-1z" />
+      <path d="M18 8h2v9a2 2 0 0 1-2 2M7 8h7M7 12h7M7 16h4" />
+    </svg>
+  ),
 }
 
 const TABS: TabDef[] = [
   { id: 'dashboard',   label: 'Home',    icon: IC.trophy },
+  { id: 'recap',       label: 'Recap',   icon: IC.news },
   { id: 'players',     label: 'Cast',    icon: IC.users },
   { id: 'tribes',      label: 'Tribes',  icon: IC.flag },
   { id: 'teams',       label: 'Teams',   icon: IC.shield },
