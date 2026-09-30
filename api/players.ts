@@ -9,7 +9,7 @@ import {
   applyCors, hasDatabase, respondNoDb, handleError,
   requireAdmin, requireInt, sql, HttpError,
   type PlayerStatus,
-} from './_db'
+} from './_db.ts'
 
 const VALID_STATUSES: PlayerStatus[] = ['active', 'voted_out', 'medevac', 'quit', 'winner']
 

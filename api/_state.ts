@@ -1,7 +1,7 @@
 // Loads the full league state as one JSON blob for the /api/state endpoint.
 // Kept separate from _db.ts so files stay short and easier to review.
 
-import { sql, type FullState, type PlayerStatus } from './_db'
+import { sql, type FullState, type PlayerStatus } from './_db.ts'
 
 export async function loadFullState(): Promise<FullState> {
   const [tribes, managers, players, categories, events, overrides, predictions, meta] = await Promise.all([

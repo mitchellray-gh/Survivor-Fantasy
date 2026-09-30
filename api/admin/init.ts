@@ -14,11 +14,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import {
   applyCors, hasDatabase, respondNoDb, handleError, requireAdmin, sql,
-} from '../_db'
-import { SCHEMA_STATEMENTS } from '../_schema'
-import { PLAYERS } from '../../src/data/players'
-import { SCORING_CATEGORIES } from '../../src/data/scoringRules'
-import { PLAYER_TRIBES, TRIBES } from '../../src/data/tribes'
+} from '../_db.ts'
+import { SCHEMA_STATEMENTS } from '../_schema.ts'
+import { PLAYERS } from '../../src/data/players.ts'
+import { SCORING_CATEGORIES } from '../../src/data/scoringRules.ts'
+import { PLAYER_TRIBES, TRIBES } from '../../src/data/tribes.ts'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   applyCors(res, 'POST, OPTIONS')

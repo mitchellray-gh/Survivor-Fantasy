@@ -16,7 +16,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { Redis } from '@upstash/redis'
 import {
   applyCors, hasDatabase, respondNoDb, handleError, requireAdmin, sql,
-} from '../_db'
+} from '../_db.ts'
 
 interface LegacyEpisodeScore {
   playerId: number

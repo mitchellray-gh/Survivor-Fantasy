@@ -2,8 +2,8 @@
 // This is the single "hydrate" endpoint the client hits on load.
 
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { applyCors, hasDatabase, respondNoDb, handleError } from './_db'
-import { loadFullState } from './_state'
+import { applyCors, hasDatabase, respondNoDb, handleError } from './_db.ts'
+import { loadFullState } from './_state.ts'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   applyCors(res, 'GET, OPTIONS')

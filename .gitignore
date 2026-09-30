@@ -32,3 +32,10 @@ pnpm-debug.log*
 
 # NOTE: public/players/*.jpeg IS committed on purpose — those are the real
 # CBS cast photos extracted from the docx and are required for the app.
+
+# Added by `vercel install neon/neon`. `.env*` was removed because it also
+# matched .env.example, which is intentionally tracked.
+.agents/
+skills-lock.json
+.env.local
+.env.*.local

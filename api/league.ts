@@ -8,7 +8,7 @@
 // You can safely delete this file once no old builds exist in the wild.
 
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { applyCors } from './_db'
+import { applyCors } from './_db.ts'
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
   applyCors(res, 'GET, PUT, OPTIONS')

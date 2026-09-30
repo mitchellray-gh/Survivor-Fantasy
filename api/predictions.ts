@@ -6,7 +6,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import {
   applyCors, hasDatabase, respondNoDb, handleError,
   requireAdmin, requireInt, requireStr, sql, HttpError,
-} from './_db'
+} from './_db.ts'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   applyCors(res, 'POST, OPTIONS')
