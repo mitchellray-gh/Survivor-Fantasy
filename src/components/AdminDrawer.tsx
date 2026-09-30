@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import type { Player } from '../data/players'
 import type { PlayerStatus } from '../data/storage'
 import { getAdminKey, setAdminKey } from '../data/storage'
+import type { PlayerService } from '../data/playerService'
 
 interface AdminDrawerProps {
   isOpen: boolean
@@ -9,6 +10,12 @@ interface AdminDrawerProps {
   players: Player[]
   onPlayerStatusChange: (playerId: number, status: PlayerStatus) => void
   onOverrideChange: (playerId: number, episode: number, delta: number, reason: string | null) => void
+  /** Service, for reading/writing season settings. */
+  service: PlayerService
+  /** The active episode, so the UI can show what "current" means right now. */
+  currentEpisode: number
+  /** Bump the parent's version so the rest of the app re-renders. */
+  onSettingsChanged: () => void
 }
 
 const STATUSES: PlayerStatus[] = ['active', 'voted_out', 'medevac', 'quit', 'winner']
@@ -21,15 +28,23 @@ const STATUS_LABEL: Record<PlayerStatus, string> = {
   winner:    'Winner',
 }
 
-function AdminDrawer({ isOpen, onClose, players, onPlayerStatusChange, onOverrideChange }: AdminDrawerProps) {
+function AdminDrawer({ isOpen, onClose, players, onPlayerStatusChange, onOverrideChange, service, currentEpisode, onSettingsChanged }: AdminDrawerProps) {
   const [selectedPlayerId, setSelectedPlayerId] = useState<number | ''>(players[0]?.id ?? '')
   const [episode, setEpisode] = useState(1)
   const [delta, setDelta] = useState(0)
   const [reason, setReason] = useState('')
   const [keyDraft, setKeyDraft] = useState(() => getAdminKey())
   const [keySaved, setKeySaved] = useState(false)
+  const [seasonEpisode, setSeasonEpisode] = useState(() => service.getCurrentEpisode())
 
   if (!isOpen) return null
+
+  const applyEpisode = (n: number) => {
+    const ep = Math.max(1, Math.floor(n))
+    setSeasonEpisode(ep)
+    service.setCurrentEpisode(ep)
+    onSettingsChanged()
+  }
 
   const handleSaveKey = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -65,6 +80,65 @@ function AdminDrawer({ isOpen, onClose, players, onPlayerStatusChange, onOverrid
         </div>
 
         <div className="drawer-body">
+          <section className="drawer-section">
+            <div className="drawer-section-title">Season Settings</div>
+            <div className="drawer-section-body">
+              <div className="drawer-row">
+                <label htmlFor="admin-episode">Current episode</label>
+                <input
+                  id="admin-episode"
+                  className="input"
+                  type="number"
+                  min={1}
+                  value={seasonEpisode}
+                  onChange={e => setSeasonEpisode(Math.max(1, Number(e.target.value) || 1))}
+                />
+              </div>
+              <div className="drawer-row">
+                <label>Quick set</label>
+                <div className="settings-pills">
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <button
+                      key={n}
+                      type="button"
+                      className={`settings-pill${service.getCurrentEpisode() === n ? ' is-active' : ''}`}
+                      onClick={() => applyEpisode(n)}
+                    >
+                      EP {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <button type="button" className="btn btn-primary" onClick={() => applyEpisode(seasonEpisode)}>
+                Set league to Episode {seasonEpisode}
+              </button>
+              <p className="drawer-help">
+                Sets the episode every tab opens on: Score, Predict and Recap all
+                follow this number. Currently on episode {currentEpisode}.
+              </p>
+
+              <div className="drawer-row" style={{ marginTop: 6 }}>
+                <label htmlFor="admin-lock">Predictions</label>
+                <select
+                  id="admin-lock"
+                  className="select"
+                  value={service.isPredictionsLocked() ? 'locked' : 'open'}
+                  onChange={e => {
+                    service.setPredictionsLocked(e.target.value === 'locked')
+                    onSettingsChanged()
+                  }}
+                >
+                  <option value="open">Open for picks</option>
+                  <option value="locked">Locked</option>
+                </select>
+              </div>
+              <p className="drawer-help">
+                Locking closes the prediction desk to new wagers. Settling an
+                already-scored episode still works.
+              </p>
+            </div>
+          </section>
+
           <section className="drawer-section">
             <div className="drawer-section-title">Admin Key</div>
             <div className="drawer-section-body">

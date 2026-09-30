@@ -1342,6 +1342,26 @@
 .chip-bal.pos { color: #4ade80; }
 .chip-bal.neg { color: #f87171; }
 
+/* Season Settings pills in the admin drawer */
+.settings-pills { display: flex; gap: 4px; flex-wrap: wrap; }
+.settings-pill {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  padding: 6px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated-2);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.settings-pill:hover { border-color: var(--border-strong); color: var(--text); }
+.settings-pill.is-active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+
 /* ============================================================================
    WEEKLY RECAP. Reads as a newsletter: headline movers, then the story grouped
    by scoring rule, then per-player movement with season sparklines.

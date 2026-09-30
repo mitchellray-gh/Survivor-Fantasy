@@ -340,6 +340,36 @@ export class PlayerService {
       .catch(err => console.error('[PlayerService] setRecapNote failed:', err))
   }
 
+  // -------- Season settings ---------------------------------------------------
+
+  /**
+   * The episode the league is currently on. Every tab defaults to this, so
+   * advancing the season is one action rather than four separate edits.
+   * Falls back to 1 before the commissioner has ever set it.
+   */
+  getCurrentEpisode(): number {
+    const n = Number(this.meta.current_episode)
+    return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1
+  }
+
+  setCurrentEpisode(n: number): void {
+    const ep = Math.max(1, Math.floor(n))
+    this.meta = { ...this.meta, current_episode: String(ep) }
+    void this.backend.setMeta('current_episode', String(ep))
+      .catch(err => console.error('[PlayerService] setCurrentEpisode failed:', err))
+  }
+
+  /** True when predictions are closed to new picks. */
+  isPredictionsLocked(): boolean {
+    return this.meta.predictions_locked === 'true'
+  }
+
+  setPredictionsLocked(locked: boolean): void {
+    this.meta = { ...this.meta, predictions_locked: locked ? 'true' : 'false' }
+    void this.backend.setMeta('predictions_locked', locked ? 'true' : 'false')
+      .catch(err => console.error('[PlayerService] setPredictionsLocked failed:', err))
+  }
+
   // -------- Predictions ------------------------------------------------------
 
   getPrediction(manager: string, episode: number, categoryId: ScoringCategoryId): number | null {

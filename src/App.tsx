@@ -60,10 +60,22 @@ function App() {
     return () => { cancelled = true }
   }, [service])
 
+  // The initial useState calls above run before hydrate() has loaded meta, so
+  // they always start at 1. Re-sync once the real current episode is known.
+  useEffect(() => {
+    if (!hydrated) return
+    const ep = service.getCurrentEpisode()
+    setScoringEpisode(ep)
+    setPredictionEpisode(ep)
+    setRecapEpisode(ep)
+  }, [hydrated, service])
+
   const [activeTab, setActiveTab] = useState<TabId>('dashboard')
-  const [scoringEpisode, setScoringEpisode] = useState(1)
-  const [predictionEpisode, setPredictionEpisode] = useState(1)
-  const [recapEpisode, setRecapEpisode] = useState(1)
+  // All three episode inputs default to the league's current episode, so the
+  // commissioner's Season Settings drives Score, Predict and Recap together.
+  const [scoringEpisode, setScoringEpisode] = useState(() => service.getCurrentEpisode())
+  const [predictionEpisode, setPredictionEpisode] = useState(() => service.getCurrentEpisode())
+  const [recapEpisode, setRecapEpisode] = useState(() => service.getCurrentEpisode())
   const [predictionManager, setPredictionManager] = useState<string | null>(null)
   const [rulesOpen, setRulesOpen] = useState(false)
   const [adminOpen, setAdminOpen] = useState(false)
@@ -271,6 +283,9 @@ function App() {
         players={players}
         onPlayerStatusChange={onPlayerStatusChange}
         onOverrideChange={onOverrideChange}
+        service={service}
+        currentEpisode={scoringEpisode}
+        onSettingsChanged={bump}
       />
 
       {/* Persona dossier: opened from the "?" on any odds row. */}
