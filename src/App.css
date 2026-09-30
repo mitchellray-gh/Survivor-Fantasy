@@ -1788,6 +1788,15 @@
   letter-spacing: 0.4px;
   color: var(--text-dim);
   margin: 0 2px 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cast-out-note {
+  color: var(--text-dim);
+  opacity: 0.75;
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
 }
 .cast-empty {
   padding: 18px 12px;

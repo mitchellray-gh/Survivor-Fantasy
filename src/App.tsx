@@ -7,7 +7,7 @@ import RecapTab from './components/RecapTab'
 import SaveAlert from './components/SaveAlert'
 import ScoringTab from './components/ScoringTab'
 import PlayerSheet from './components/PlayerSheet'
-import type { TribeId } from './data/tribes'
+import { TRIBES, type TribeId } from './data/tribes'
 import TabBar, { type TabId } from './components/TabBar'
 import { PlayerService, type ScoringCategoryId, type PlayerStatus } from './data/playerService'
 import { getAdminKey, onFailedWrite, type FailedWrite } from './data/storage'
@@ -16,6 +16,16 @@ import Dossier from './components/Dossier'
 import './App.css'
 
 const GROUPS = ['Survival','Challenge','Advantage','Social & Drama'] as const
+
+/** Sort orders offered on the cast list. */
+type CastSort = 'tribe' | 'status' | 'points' | 'name'
+
+const CAST_SORTS: Array<{ id: CastSort; label: string }> = [
+  { id: 'tribe',  label: 'Tribe' },
+  { id: 'status', label: 'Status' },
+  { id: 'points', label: 'Points' },
+  { id: 'name',   label: 'A-Z' },
+]
 
 /**
  * "Who am I?" is remembered in localStorage so a manager only picks once.
@@ -93,6 +103,7 @@ function App() {
   // here as filters so the bottom bar stays at five.
   const [castTribe, setCastTribe] = useState<TribeId | null>(null)
   const [castManager, setCastManager] = useState<string | null>(null)
+  const [castSort, setCastSort] = useState<CastSort>('tribe')
   const [expandedManager, setExpandedManager] = useState<string | null>(null)
 
   const onSelectManager = (name: string) => {
@@ -177,10 +188,41 @@ function App() {
 
   const castVisible = useMemo(() => {
     void version
-    return players.filter(p =>
+    const filtered = players.filter(p =>
       (castTribe === null || p.tribe === castTribe) &&
       (castManager === null || p.managerName === castManager))
-  }, [players, castTribe, castManager, version])
+
+    // Tribe order follows the data (Savu, Toka, Exile) rather than the alphabet.
+    const tribeRank = new Map(TRIBES.map((t, i) => [t.id, i]))
+
+    return filtered.slice().sort((a, b) => {
+      // "Alive first" is the default on every sort: a castaway still in the
+      // game is the one you care about, so the eliminated sink.
+      if (a.votedOut !== b.votedOut) return a.votedOut ? 1 : -1
+
+      switch (castSort) {
+        case 'tribe': {
+          const ra = tribeRank.get(a.tribe ?? 'exile') ?? 99
+          const rb = tribeRank.get(b.tribe ?? 'exile') ?? 99
+          if (ra !== rb) return ra - rb
+          return a.name.localeCompare(b.name)
+        }
+        case 'status': {
+          const sa = a.status ?? 'active'
+          const sb = b.status ?? 'active'
+          if (sa !== sb) return sa.localeCompare(sb)
+          return a.name.localeCompare(b.name)
+        }
+        case 'points': {
+          const d = service.getPlayerTotal(b.id) - service.getPlayerTotal(a.id)
+          return d !== 0 ? d : a.name.localeCompare(b.name)
+        }
+        case 'name':
+        default:
+          return a.name.localeCompare(b.name)
+      }
+    })
+  }, [players, castTribe, castManager, castSort, service, version])
 
   // The episode the league is officially on, and whether the tab you're looking
   // at has drifted from it.
@@ -373,10 +415,29 @@ function App() {
                   ))}
                 </div>
               </div>
+              <div className="cast-filter-row">
+                <span className="cast-filter-label">Sort by</span>
+                <div className="cast-chips">
+                  {CAST_SORTS.map(s => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      className={`cast-chip${castSort === s.id ? ' is-active' : ''}`}
+                      onClick={() => setCastSort(s.id)}
+                      aria-pressed={castSort === s.id}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <div className="cast-count">
               {castVisible.length} of {players.length} castaways
+              <span className="cast-out-note">
+                {players.filter(p => p.votedOut).length} out
+              </span>
             </div>
 
             <div className="list-card">
