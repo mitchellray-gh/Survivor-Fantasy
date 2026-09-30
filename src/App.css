@@ -1554,17 +1554,24 @@
    movement table, prediction desk.
    ============================================================================ */
 
-.psheet-head { display: flex; align-items: center; gap: 11px; }
+.psheet-head { display: flex; align-items: center; gap: 13px; }
 .psheet-head img {
-  width: 56px; height: 56px; border-radius: 50%; object-fit: cover;
+  width: 88px; height: 88px; border-radius: 50%; object-fit: cover;
   border: 2px solid var(--border); flex-shrink: 0;
 }
 .psheet-id { min-width: 0; }
 .psheet-name {
-  font-size: 17px; font-weight: 800; color: var(--text);
+  overflow-wrap: anywhere;
+}
+/* Very narrow phones: drop the avatar back so the name keeps its line. */
+@media (max-width: 360px) {
+  .psheet-head img { width: 68px; height: 68px; }
+}
+.psheet-name {
+  font-size: 19px; font-weight: 800; color: var(--text);
   line-height: 1.15;
 }
-.psheet-sub { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+.psheet-sub { font-size: 13px; color: var(--text-muted); margin-top: 1px; }
 .psheet-status {
   display: inline-block;
   margin-top: 5px;
