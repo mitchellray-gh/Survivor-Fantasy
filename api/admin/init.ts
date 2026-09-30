@@ -13,7 +13,7 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import {
-  applyCors, hasDatabase, respondNoDb, handleError, sql,
+  applyCors, hasDatabase, respondNoDb, handleError, requireAdmin, sql,
 } from '../_db'
 import { SCHEMA_STATEMENTS } from '../_schema'
 import { PLAYERS } from '../../src/data/players'
@@ -31,6 +31,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    if (!requireAdmin(req, res)) return
+
     // 1. DDL. Each statement is run on its own; @vercel/postgres template
     //    literals only support a single statement per call.
     for (const stmt of SCHEMA_STATEMENTS) {

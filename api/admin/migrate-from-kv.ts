@@ -15,7 +15,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { Redis } from '@upstash/redis'
 import {
-  applyCors, hasDatabase, respondNoDb, handleError, sql,
+  applyCors, hasDatabase, respondNoDb, handleError, requireAdmin, sql,
 } from '../_db'
 
 interface LegacyEpisodeScore {
@@ -51,6 +51,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    if (!requireAdmin(req, res)) return
+
     const redis = new Redis({ url: kvUrl, token: kvTok })
     const legacy = (await redis.get<LegacyState>('league:default'))
       ?? { votedOut: [], scores: [], version: 0 }

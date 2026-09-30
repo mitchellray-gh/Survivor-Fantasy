@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import type { Player } from '../data/players'
 import type { PlayerStatus } from '../data/storage'
+import { getAdminKey, setAdminKey } from '../data/storage'
 
 interface AdminDrawerProps {
   isOpen: boolean
@@ -25,8 +26,18 @@ function AdminDrawer({ isOpen, onClose, players, onPlayerStatusChange, onOverrid
   const [episode, setEpisode] = useState(1)
   const [delta, setDelta] = useState(0)
   const [reason, setReason] = useState('')
+  const [keyDraft, setKeyDraft] = useState(() => getAdminKey())
+  const [keySaved, setKeySaved] = useState(false)
 
   if (!isOpen) return null
+
+  const handleSaveKey = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setAdminKey(keyDraft.trim())
+    setKeyDraft(getAdminKey())
+    setKeySaved(true)
+    setTimeout(() => setKeySaved(false), 2000)
+  }
 
   const selectedPlayer = players.find(p => p.id === selectedPlayerId)
 
@@ -54,6 +65,33 @@ function AdminDrawer({ isOpen, onClose, players, onPlayerStatusChange, onOverrid
         </div>
 
         <div className="drawer-body">
+          <section className="drawer-section">
+            <div className="drawer-section-title">Admin Key</div>
+            <div className="drawer-section-body">
+              <form onSubmit={handleSaveKey} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div className="drawer-row">
+                  <label htmlFor="admin-key">Key</label>
+                  <input
+                    id="admin-key"
+                    className="input"
+                    type="password"
+                    autoComplete="off"
+                    placeholder="Commissioner key"
+                    value={keyDraft}
+                    onChange={e => setKeyDraft(e.target.value)}
+                  />
+                </div>
+                <button type="submit" className="btn btn-primary">
+                  {keySaved ? 'Saved ✓' : 'Save key'}
+                </button>
+              </form>
+              <p className="drawer-help">
+                Needed once for scoring, status changes, and overrides to write to the
+                shared database. Stored for this browser tab only.
+              </p>
+            </div>
+          </section>
+
           <section className="drawer-section">
             <div className="drawer-section-title">Player Status</div>
             <div className="drawer-section-body">

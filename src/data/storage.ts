@@ -164,12 +164,53 @@ export class LocalStorageBackend implements StorageBackend {
 
 // ---- Remote backend (Vercel Postgres via /api/*) ---------------------------
 
+// ---- Admin key (shared commissioner secret) --------------------------------
+//
+// Mutations to /api/* require this key in the X-Admin-Key header. The server
+// no-ops the check when ADMIN_KEY is unset, so we only send it once the user
+// has actually entered one.
+//
+// Kept in sessionStorage, not localStorage: the key should not outlive the
+// browser tab, and it must never be baked into the bundle at build time.
+
+const ADMIN_KEY_STORAGE = 'survivor_fantasy_admin_key'
+
+export function getAdminKey(): string {
+  try {
+    return sessionStorage.getItem(ADMIN_KEY_STORAGE) ?? ''
+  } catch {
+    return '' // private mode / storage blocked
+  }
+}
+
+export function setAdminKey(key: string): void {
+  try {
+    if (key) sessionStorage.setItem(ADMIN_KEY_STORAGE, key)
+    else sessionStorage.removeItem(ADMIN_KEY_STORAGE)
+  } catch {
+    // Non-fatal: the request will 401 and the UI will surface it.
+  }
+}
+
+/** Headers for an authenticated API call. */
+function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const key = getAdminKey()
+  return key ? { ...extra, 'X-Admin-Key': key } : extra
+}
+
 async function postJson(url: string, body: unknown): Promise<void> {
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: authHeaders({ 'content-type': 'application/json' }),
     body: JSON.stringify(body),
   })
+  if (res.status === 401) {
+    // Wrong or missing key. Clear it so the next attempt asks again.
+    setAdminKey('')
+    throw new Error(
+      'Unauthorized. Your admin key is missing or incorrect - set it in the Admin panel.',
+    )
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => '')
     throw new Error(`POST ${url} failed: ${res.status} ${text}`)
@@ -181,7 +222,9 @@ export class RemoteBackend implements StorageBackend {
   constructor(private readonly baseUrl: string = '/api') {}
 
   async load(): Promise<StateSnapshot> {
-    const res = await fetch(`${this.baseUrl}/state`, { headers: { accept: 'application/json' } })
+    const res = await fetch(`${this.baseUrl}/state`, {
+      headers: authHeaders({ accept: 'application/json' }),
+    })
     if (!res.ok) throw new Error(`GET /state failed: ${res.status}`)
     const raw = (await res.json()) as any
     return {

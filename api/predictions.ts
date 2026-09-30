@@ -5,7 +5,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import {
   applyCors, hasDatabase, respondNoDb, handleError,
-  requireInt, requireStr, sql, HttpError,
+  requireAdmin, requireInt, requireStr, sql, HttpError,
 } from './_db'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -20,6 +20,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    if (!requireAdmin(req, res)) return
+
     const body = (req.body ?? {}) as Record<string, unknown>
     const manager    = requireStr(body.manager,    'manager')
     const episode    = requireInt(body.episode,    'episode')
