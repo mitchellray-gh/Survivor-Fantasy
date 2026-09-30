@@ -1,5 +1,5 @@
 import React from 'react'
-import type { PlayerService, Player, ScoringCategory } from '../data/playerService'
+import type { PlayerService, Player, ScoringCategory, ScoringCategoryId } from '../data/playerService'
 
 interface PredictionsTabProps {
   service: PlayerService
@@ -11,13 +11,13 @@ interface PredictionsTabProps {
   onChangeManager: (name: string) => void
   episode: number
   onEpisodeChange: (n: number) => void
-  onSetPrediction: (categoryId: string, targetPlayerId: number | null) => void
+  onSetPrediction: (categoryId: ScoringCategoryId, targetPlayerId: number | null) => void
 }
 
 // Which scoring categories are worth predicting each episode. We keep this
 // short: high-signal boolean events that make sense as "who will do X?"
 // picks. Category ids come straight from scoringRules.ts.
-const PREDICTION_CATEGORIES: string[] = [
+const PREDICTION_CATEGORIES: ScoringCategoryId[] = [
   'individual_immunity',
   'found_idol_or_advantage',
   'first_to_cry',
@@ -25,7 +25,7 @@ const PREDICTION_CATEGORIES: string[] = [
   'individual_reward',
 ]
 
-const CATEGORY_QUESTION: Record<string, string> = {
+const CATEGORY_QUESTION: Partial<Record<ScoringCategoryId, string>> = {
   individual_immunity:      'Who wins Individual Immunity?',
   found_idol_or_advantage:  'Who finds an Idol or Advantage?',
   first_to_cry:             'Who cries first?',
@@ -69,7 +69,7 @@ const PredictionsTab: React.FC<PredictionsTabProps> = ({
               value={currentManager ?? ''}
               onChange={e => onChangeManager(e.target.value)}
             >
-              <option value="" disabled>Choose your manager\u2026</option>
+              <option value="" disabled>Choose your manager…</option>
               {managers.map(m => <option key={m} value={m}>{m}</option>)}
             </select>
           </div>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Header from './components/Header'
 import PlayerCard from './components/PlayerCard'
+import PredictionsTab from './components/PredictionsTab'
 import ScoringTab from './components/ScoringTab'
 import TabBar, { type TabId } from './components/TabBar'
 import { PlayerService, type ScoringCategoryId, type PlayerStatus } from './data/playerService'
@@ -30,6 +31,8 @@ function App() {
 
   const [activeTab, setActiveTab] = useState<TabId>('dashboard')
   const [scoringEpisode, setScoringEpisode] = useState(1)
+  const [predictionEpisode, setPredictionEpisode] = useState(1)
+  const [predictionManager, setPredictionManager] = useState<string | null>(null)
   const [rulesOpen, setRulesOpen] = useState(false)
   const [adminOpen, setAdminOpen] = useState(false)
 
@@ -49,6 +52,11 @@ function App() {
 
   const onOverrideChange = (playerId: number, episode: number, delta: number, reason: string | null) => {
     service.setOverride(playerId, episode, delta, reason); bump()
+  }
+
+  const onSetPrediction = (catId: ScoringCategoryId, targetPlayerId: number | null) => {
+    if (!predictionManager) return
+    service.setPrediction(predictionManager, predictionEpisode, catId, targetPlayerId); bump()
   }
 
   const standings = useMemo(() => {
@@ -148,6 +156,20 @@ function App() {
               </div>
             ))}
           </section>
+        )}
+
+        {activeTab === 'predictions' && (
+          <PredictionsTab
+            service={service}
+            players={players}
+            scoringCategories={cats}
+            currentManager={predictionManager}
+            managers={managers.map(m => m.name)}
+            onChangeManager={setPredictionManager}
+            episode={predictionEpisode}
+            onEpisodeChange={setPredictionEpisode}
+            onSetPrediction={onSetPrediction}
+          />
         )}
 
         {activeTab === 'scoring' && (
