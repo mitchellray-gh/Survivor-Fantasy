@@ -3,7 +3,8 @@ import Header from './components/Header'
 import PlayerCard from './components/PlayerCard'
 import ScoringTab from './components/ScoringTab'
 import TabBar, { type TabId } from './components/TabBar'
-import { PlayerService, type ScoringCategoryId } from './data/playerService'
+import { PlayerService, type ScoringCategoryId, type PlayerStatus } from './data/playerService'
+import AdminDrawer from './components/AdminDrawer'
 import './App.css'
 
 const GROUPS = ['Survival','Challenge','Advantage','Social & Drama'] as const
@@ -30,6 +31,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<TabId>('dashboard')
   const [scoringEpisode, setScoringEpisode] = useState(1)
   const [rulesOpen, setRulesOpen] = useState(false)
+  const [adminOpen, setAdminOpen] = useState(false)
 
   const players = service.getPlayers()
   const managers = service.getManagers()
@@ -39,6 +41,14 @@ function App() {
   const onUnvoteOut = (id: number) => { service.unvoteOutPlayer(id); bump() }
   const onToggleEvent = (playerId: number, catId: ScoringCategoryId) => {
     service.toggleEvent(playerId, scoringEpisode, catId); bump()
+  }
+
+  const onPlayerStatusChange = (playerId: number, status: PlayerStatus) => {
+    service.setPlayerStatus(playerId, status); bump()
+  }
+
+  const onOverrideChange = (playerId: number, episode: number, delta: number, reason: string | null) => {
+    service.setOverride(playerId, episode, delta, reason); bump()
   }
 
   const standings = useMemo(() => {
@@ -62,7 +72,7 @@ function App() {
 
   return (
     <div className="app">
-      <Header title={TAB_TITLES[activeTab]} subtitle="Survivor Season 51" right={storageBadge} />
+      <Header title={TAB_TITLES[activeTab]} subtitle="Survivor Season 51" right={storageBadge} onOpenAdmin={() => setAdminOpen(true)} />
 
       <main className="app-main">
         {activeTab === 'dashboard' && (
@@ -148,6 +158,14 @@ function App() {
       </main>
 
       <TabBar active={activeTab} onChange={setActiveTab} counts={{ players: players.length, teams: managers.length }} />
+
+      <AdminDrawer
+        isOpen={adminOpen}
+        onClose={() => setAdminOpen(false)}
+        players={players}
+        onPlayerStatusChange={onPlayerStatusChange}
+        onOverrideChange={onOverrideChange}
+      />
     </div>
   )
 }

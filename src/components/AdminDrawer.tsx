@@ -1,5 +1,6 @@
-import { PlayerStatus } from '../data/storage'
-import { Player } from '../data/players'
+import { useState, type FormEvent } from 'react'
+import type { Player } from '../data/players'
+import type { PlayerStatus } from '../data/storage'
 
 interface AdminDrawerProps {
   isOpen: boolean
@@ -9,60 +10,155 @@ interface AdminDrawerProps {
   onOverrideChange: (playerId: number, episode: number, delta: number, reason: string | null) => void
 }
 
-export function AdminDrawer({ isOpen, onClose, players, onPlayerStatusChange, onOverrideChange }: AdminDrawerProps) {
+const STATUSES: PlayerStatus[] = ['active', 'voted_out', 'medevac', 'quit', 'winner']
+
+const STATUS_LABEL: Record<PlayerStatus, string> = {
+  active:    'Active',
+  voted_out: 'Voted out',
+  medevac:   'Medevac',
+  quit:      'Quit',
+  winner:    'Winner',
+}
+
+function AdminDrawer({ isOpen, onClose, players, onPlayerStatusChange, onOverrideChange }: AdminDrawerProps) {
+  const [selectedPlayerId, setSelectedPlayerId] = useState<number | ''>(players[0]?.id ?? '')
+  const [episode, setEpisode] = useState(1)
+  const [delta, setDelta] = useState(0)
+  const [reason, setReason] = useState('')
+
   if (!isOpen) return null
+
+  const selectedPlayer = players.find(p => p.id === selectedPlayerId)
+
+  const handleOverrideSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (selectedPlayerId === '' || Number.isNaN(episode) || Number.isNaN(delta)) return
+    onOverrideChange(Number(selectedPlayerId), episode, delta, reason.trim() || null)
+    setDelta(0)
+    setReason('')
+  }
 
   return (
     <div className="drawer-backdrop" onClick={onClose}>
-      <div className="drawer" onClick={(e) => e.stopPropagation()}>
+      <div className="drawer" onClick={e => e.stopPropagation()}>
         <div className="drawer-header">
           <h2 className="drawer-title">Admin Controls</h2>
-          <button className="icon-btn" onClick={onClose} aria-label="Close">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={onClose}
+            aria-label="Close admin"
+          >
+            ✕
           </button>
         </div>
-        
+
         <div className="drawer-body">
-          {players.map(player => (
-            <div key={player.id} className="drawer-section">
-              <h3 className="drawer-section-title">{player.name}</h3>
-              <div className="drawer-section-body">
+          <section className="drawer-section">
+            <div className="drawer-section-title">Player Status</div>
+            <div className="drawer-section-body">
+              <div className="drawer-row">
+                <label htmlFor="admin-status-player">Player</label>
+                <select
+                  id="admin-status-player"
+                  className="select"
+                  value={selectedPlayerId}
+                  onChange={e => setSelectedPlayerId(e.target.value === '' ? '' : Number(e.target.value))}
+                >
+                  {players.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+              {selectedPlayer && (
+                <div className="status-picker">
+                  {STATUSES.map(s => {
+                    const current = selectedPlayer.status ?? 'active'
+                    const active = current === s
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        className={`status-btn${active ? ' is-active' : ''}`}
+                        onClick={() => onPlayerStatusChange(selectedPlayer.id, s)}
+                      >
+                        {STATUS_LABEL[s]}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+              <p className="drawer-help">
+                Sets the castaway's game state. Anything other than <em>Active</em> or <em>Winner</em>
+                counts them as voted-out for scoring purposes.
+              </p>
+            </div>
+          </section>
+
+          <section className="drawer-section">
+            <div className="drawer-section-title">Score Override</div>
+            <div className="drawer-section-body">
+              <form onSubmit={handleOverrideSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div className="drawer-row">
-                  <label>Status</label>
-                  <select 
+                  <label htmlFor="admin-override-player">Player</label>
+                  <select
+                    id="admin-override-player"
                     className="select"
-                    value={player.status}
-                    onChange={(e) => onPlayerStatusChange(player.id, e.target.value as PlayerStatus)}
+                    value={selectedPlayerId}
+                    onChange={e => setSelectedPlayerId(e.target.value === '' ? '' : Number(e.target.value))}
                   >
-                    <option value="active">Active</option>
-                    <option value="voted_out">Voted Out</option>
-                    <option value="medevac">Medevac</option>
-                    <option value="quit">Quit</option>
-                    <option value="winner">Winner</option>
+                    {players.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
                   </select>
                 </div>
-                
                 <div className="drawer-row">
-                  <label>Score Override</label>
-                  <input 
-                    type="number" 
+                  <label htmlFor="admin-override-episode">Episode</label>
+                  <input
+                    id="admin-override-episode"
                     className="input"
-                    placeholder="Override points"
-                    defaultValue={0}
-                    onChange={(e) => {
-                      const delta = parseInt(e.target.value) || 0
-                      onOverrideChange(player.id, 1, delta, 'Admin override')
-                    }}
+                    type="number"
+                    min={1}
+                    value={episode}
+                    onChange={e => setEpisode(parseInt(e.target.value, 10) || 1)}
                   />
                 </div>
-              </div>
+                <div className="drawer-row">
+                  <label htmlFor="admin-override-delta">Delta</label>
+                  <input
+                    id="admin-override-delta"
+                    className="input"
+                    type="number"
+                    value={delta}
+                    onChange={e => setDelta(parseInt(e.target.value, 10) || 0)}
+                  />
+                </div>
+                <div className="drawer-row">
+                  <label htmlFor="admin-override-reason">Reason</label>
+                  <input
+                    id="admin-override-reason"
+                    className="input"
+                    type="text"
+                    placeholder="Optional note"
+                    value={reason}
+                    onChange={e => setReason(e.target.value)}
+                  />
+                </div>
+                <button type="submit" className="btn btn-primary" disabled={selectedPlayerId === ''}>
+                  Apply override
+                </button>
+                <p className="drawer-help">
+                  Adds <strong>Delta</strong> points for the given episode. Set Delta to 0 to remove
+                  an existing override.
+                </p>
+              </form>
             </div>
-          ))}
+          </section>
         </div>
       </div>
     </div>
   )
 }
+
+export default AdminDrawer
+
