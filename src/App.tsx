@@ -6,6 +6,7 @@ import PredictionsTab from './components/PredictionsTab'
 import RecapTab from './components/RecapTab'
 import SaveAlert from './components/SaveAlert'
 import ScoringTab from './components/ScoringTab'
+import PlayerSheet from './components/PlayerSheet'
 import type { TribeId } from './data/tribes'
 import TabBar, { type TabId } from './components/TabBar'
 import { PlayerService, type ScoringCategoryId, type PlayerStatus } from './data/playerService'
@@ -66,7 +67,10 @@ function App() {
     const ep = service.getCurrentEpisode()
     setScoringEpisode(ep)
     setPredictionEpisode(ep)
-    setRecapEpisode(ep)
+    // Recap deliberately follows the last SCORED episode instead: the recap is
+    // a look back, and pointing it at an unscored episode shows an empty page.
+    const scored = service.getScoredEpisodes()
+    setRecapEpisode(scored.length > 0 ? scored[scored.length - 1] : ep)
   }, [hydrated, service])
 
   const [activeTab, setActiveTab] = useState<TabId>('dashboard')
@@ -74,7 +78,12 @@ function App() {
   // commissioner's Season Settings drives Score, Predict and Recap together.
   const [scoringEpisode, setScoringEpisode] = useState(() => service.getCurrentEpisode())
   const [predictionEpisode, setPredictionEpisode] = useState(() => service.getCurrentEpisode())
-  const [recapEpisode, setRecapEpisode] = useState(() => service.getCurrentEpisode())
+  // Recap is a look BACK, so it opens on the most recent scored episode
+  // (episode 1 while episode 2 is still unscored) rather than the live one.
+  const [recapEpisode, setRecapEpisode] = useState(() => {
+    const scored = service.getScoredEpisodes()
+    return scored.length > 0 ? scored[scored.length - 1] : service.getCurrentEpisode()
+  })
   const [predictionManager, setPredictionManager] = useState<string | null>(null)
   const [rulesOpen, setRulesOpen] = useState(false)
   const [adminOpen, setAdminOpen] = useState(false)
@@ -152,6 +161,11 @@ function App() {
   const [dossierPlayerId, setDossierPlayerId] = useState<number | null>(null)
   const dossierPlayer = dossierPlayerId == null ? null : players.find(p => p.id === dossierPlayerId) ?? null
 
+  // Shared player detail sheet, reachable from cast, rosters, recap and desk.
+  const [inspectId, setInspectId] = useState<number | null>(null)
+  const inspectPlayer = inspectId == null ? null : players.find(p => p.id === inspectId) ?? null
+  const setInspectPlayer = (id: number) => { setInspectId(id); setDossierPlayerId(null) }
+
   const standings = useMemo(() => {
     void version
     return managers.map(m => ({
@@ -174,8 +188,7 @@ function App() {
   const activeTabEpisode =
     activeTab === 'scoring' ? scoringEpisode
     : activeTab === 'predictions' ? predictionEpisode
-    : activeTab === 'recap' ? recapEpisode
-    : null
+    : null // recap intentionally sits on the last scored episode, not the live one
   const showEpisodePill = activeTabEpisode !== null && activeTabEpisode !== leagueEpisode
 
   const storageBadge = (
@@ -234,6 +247,7 @@ function App() {
               managers={managers.map(m => m.name)}
               onSelect={onSelectManager}
               onChange={onClearManager}
+              onInspect={setInspectPlayer}
             />
 
             <div className="hero-note">Season 51 premieres Wed Sept 23, 2026 on CBS &amp; Paramount+.</div>
@@ -265,18 +279,23 @@ function App() {
                     {open && (
                       <div className="standings-roster">
                         {s.players.map(p => (
-                          <div key={p.id} className={`mini-player${p.votedOut ? ' is-out' : ''}`}>
+                          <button
+                            key={p.id}
+                            type="button"
+                            className={`mini-player${p.votedOut ? ' is-out' : ''}`}
+                            onClick={() => setInspectPlayer(p.id)}
+                          >
                             <img src={p.photo} alt="" />
                             <div className="mini-player-id">
                               <div className="mini-player-name">{p.name}</div>
                               <div className="mini-player-tribe">
-                                {p.tribe ? p.tribe : 'exile'}
+                                {p.tribe ?? 'exile'}
                               </div>
                             </div>
                             <div className="mini-player-pts">
                               {service.getPlayerTotal(p.id)}
                             </div>
-                          </div>
+                          </button>
                         ))}
                       </div>
                     )}
@@ -362,7 +381,7 @@ function App() {
 
             <div className="list-card">
               {castVisible.map(p => (
-                <PlayerCard key={p.id} player={p} managerLabel={p.managerName} totalPoints={service.getPlayerTotal(p.id)} onVoteOut={onVoteOut} onUnvoteOut={onUnvoteOut} confirmingVoteOut={confirmVoteOut === p.id} showVoteControls />
+                <PlayerCard key={p.id} player={p} managerLabel={p.managerName} totalPoints={service.getPlayerTotal(p.id)} onVoteOut={onVoteOut} onUnvoteOut={onUnvoteOut} confirmingVoteOut={confirmVoteOut === p.id} onInspect={setInspectPlayer} showVoteControls />
               ))}
               {castVisible.length === 0 && (
                 <p className="cast-empty">No castaways match those filters.</p>
@@ -380,6 +399,7 @@ function App() {
             canEdit={getAdminKey().length > 0}
             onSaveNote={(ep, note) => { service.setRecapNote(ep, note); bump() }}
             version={version}
+            onInspect={setInspectPlayer}
           />
         )}
 
@@ -425,6 +445,16 @@ function App() {
         currentEpisode={scoringEpisode}
         onSettingsChanged={bump}
       />
+
+      {/* Player detail: reachable from any castaway listing. */}
+      {inspectPlayer && (
+        <PlayerSheet
+          player={inspectPlayer}
+          service={service}
+          onClose={() => setInspectId(null)}
+          onOpenRecap={(ep) => { setRecapEpisode(ep); setInspectId(null); setActiveTab('recap') }}
+        />
+      )}
 
       {/* Persona dossier: opened from the "?" on any odds row. */}
       {dossierPlayer && (

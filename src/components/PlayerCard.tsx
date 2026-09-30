@@ -10,6 +10,8 @@ interface PlayerCardProps {
   onUnvoteOut?: (playerId: number) => void
   /** True when this card is the pending vote-out confirmation. */
   confirmingVoteOut?: boolean
+  /** Open the shared player detail sheet. */
+  onInspect?: (playerId: number) => void
   showVoteControls?: boolean
   /** If true, render the collapsed row and expand on tap. Default: true. */
   collapsible?: boolean
@@ -45,6 +47,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   onVoteOut,
   onUnvoteOut,
   confirmingVoteOut,
+  onInspect,
   showVoteControls = false,
   collapsible = true,
 }) => {
@@ -72,12 +75,6 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
             <span>{player.occupation}</span>
           </div>
         </div>
-        {typeof totalPoints === 'number' && (
-          <div className="player-row-points">
-            <span className="pts-value">{totalPoints}</span>
-            <span className="pts-label">pts</span>
-          </div>
-        )}
         {collapsible && (
           <span className={`chev ${expanded ? 'chev-up' : ''}`} aria-hidden="true">
             <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
@@ -86,6 +83,27 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
           </span>
         )}
       </button>
+
+      {/* Points sit OUTSIDE the toggle button (a nested button is invalid HTML)
+          and open the shared player detail sheet. */}
+      {typeof totalPoints === 'number' && (
+        onInspect ? (
+          <button
+            type="button"
+            className="player-row-points player-row-points-btn"
+            onClick={() => onInspect(player.id)}
+            aria-label={`See ${player.name}'s points history`}
+          >
+            <span className="pts-value">{totalPoints}</span>
+            <span className="pts-label">pts</span>
+          </button>
+        ) : (
+          <div className="player-row-points">
+            <span className="pts-value">{totalPoints}</span>
+            <span className="pts-label">pts</span>
+          </div>
+        )
+      )}
 
       {expanded && (
         <div id={`player-details-${player.id}`} className="player-row-body">

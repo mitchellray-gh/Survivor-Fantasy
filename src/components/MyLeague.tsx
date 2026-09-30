@@ -8,6 +8,8 @@ interface MyLeagueProps {
   managers: string[]
   onSelect: (name: string) => void
   onChange: () => void
+  /** Open the shared player detail sheet. */
+  onInspect: (playerId: number) => void
 }
 
 /**
@@ -16,7 +18,7 @@ interface MyLeagueProps {
  * picker persists across visits so nobody has to choose on every refresh.
  */
 const MyLeague: React.FC<MyLeagueProps> = ({
-  service, selected, managers, onSelect, onChange,
+  service, selected, managers, onSelect, onChange, onInspect,
 }) => {
   if (!selected) {
     return (
@@ -84,7 +86,12 @@ const MyLeague: React.FC<MyLeagueProps> = ({
       <div className="myleague-roster">
         <div className="myleague-sub">Your cast</div>
         {s.players.map(({ player, total }) => (
-          <div key={player.id} className={`my-player${player.votedOut ? ' is-out' : ''}`}>
+          <button
+            key={player.id}
+            type="button"
+            className={`my-player${player.votedOut ? ' is-out' : ''}`}
+            onClick={() => onInspect(player.id)}
+          >
             <img src={player.photo} alt="" />
             <div className="my-player-id">
               <div className="my-player-name">{player.name}</div>
@@ -93,7 +100,7 @@ const MyLeague: React.FC<MyLeagueProps> = ({
               </div>
             </div>
             <div className={`my-player-pts${total < 0 ? ' neg' : ''}`}>{total}</div>
-          </div>
+          </button>
         ))}
       </div>
 

@@ -1550,6 +1550,144 @@
    ============================================================================ */
 
 /* ============================================================================
+   PLAYER DETAIL SHEET. Opened from any castaway listing - cast, roster, recap
+   movement table, prediction desk.
+   ============================================================================ */
+
+.psheet-head { display: flex; align-items: center; gap: 11px; }
+.psheet-head img {
+  width: 56px; height: 56px; border-radius: 50%; object-fit: cover;
+  border: 2px solid var(--border); flex-shrink: 0;
+}
+.psheet-id { min-width: 0; }
+.psheet-name {
+  font-size: 17px; font-weight: 800; color: var(--text);
+  line-height: 1.15;
+}
+.psheet-sub { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+.psheet-status {
+  display: inline-block;
+  margin-top: 5px;
+  font-size: 9px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  padding: 3px 7px; border-radius: 999px;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+.psheet-status.is-voted_out, .psheet-status.is-medevac, .psheet-status.is-quit {
+  background: #2a1414; border-color: #7f1d1d; color: #fca5a5;
+}
+.psheet-status.is-winner { background: #fef3c7; border-color: #f59e0b; color: #92400e; }
+
+.psheet-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.psheet-stat {
+  text-align: center; padding: 9px 6px;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.psheet-stat-value { font-size: 20px; font-weight: 800; color: var(--text); line-height: 1.1; }
+.psheet-stat-label {
+  font-size: 8px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.4px; color: var(--text-dim); margin-top: 2px;
+}
+.psheet-stat-hero { background: var(--primary); border-color: var(--primary); }
+.psheet-stat-hero .psheet-stat-value { color: white; font-size: 26px; }
+.psheet-stat-hero .psheet-stat-label { color: rgba(255,255,255,0.85); }
+
+.psheet-section {
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+.psheet-section-title {
+  margin: 0 0 8px;
+  font-size: 10px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--text-muted);
+  display: flex; align-items: baseline; gap: 8px;
+}
+.psheet-delta { font-size: 13px; letter-spacing: 0; }
+.psheet-delta.pos { color: #4ade80; }
+.psheet-delta.neg { color: #f87171; }
+.psheet-delta.flat { color: var(--text-dim); }
+.psheet-running { margin-left: auto; font-size: 10px; color: var(--text-dim); }
+
+.psheet-chart {
+  display: flex; align-items: flex-end; gap: 6px;
+  height: 96px; padding-top: 4px;
+}
+.psheet-bar {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column;
+  align-items: center; gap: 3px;
+  background: none; border: none; padding: 0;
+  font: inherit; cursor: pointer;
+}
+.psheet-bar-value {
+  font-size: 10px; font-weight: 800; color: var(--text-muted);
+}
+.psheet-bar-track {
+  width: 100%; flex: 1;
+  display: flex; align-items: flex-end;
+}
+.psheet-bar-fill {
+  width: 100%;
+  background: #4ade80;
+  border-radius: 3px 3px 0 0;
+  min-height: 3px;
+}
+.psheet-bar-fill.is-neg { background: #f87171; }
+.psheet-bar-fill.is-zero { background: var(--border-strong); }
+.psheet-bar-ep { font-size: 9px; font-weight: 700; color: var(--text-dim); }
+
+.psheet-breakdown { list-style: none; margin: 0; padding: 0; }
+.psheet-breakdown li {
+  display: flex; align-items: baseline; gap: 6px;
+  padding: 4px 0;
+  font-size: 11px;
+  border-bottom: 1px solid var(--border);
+}
+.psheet-breakdown li:last-child { border-bottom: none; }
+.psheet-b-label { flex: 1; min-width: 0; color: var(--text); }
+.psheet-b-count { font-size: 10px; color: var(--text-dim); }
+.psheet-b-pts { font-size: 12px; font-weight: 800; color: #4ade80; }
+.psheet-b-pts.neg { color: #f87171; }
+
+.psheet-bio {
+  margin: 0; font-size: 11px; line-height: 1.5; color: var(--text-muted);
+}
+
+/* Tappable rows: cast cards, roster chips, recap rows. */
+.player-row-points-btn {
+  background: none; border: none;
+  font: inherit; color: inherit;
+  cursor: pointer; flex-shrink: 0;
+  padding: 4px 6px; border-radius: var(--radius-sm);
+}
+.player-row-points-btn:hover { background: var(--bg-elevated-2); }
+.player-row-points-btn:active { transform: translateY(1px); }
+.my-player {
+  background: var(--bg-elevated-2); border: 1px solid var(--border);
+  font: inherit; color: inherit; text-align: left; cursor: pointer; width: 100%;
+}
+.my-player:hover { border-color: var(--border-strong); }
+.mini-player {
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  font: inherit; color: inherit; text-align: left; cursor: pointer; width: 100%;
+}
+.mini-player:hover { border-color: var(--border-strong); }
+.recap-row-open {
+  display: flex; align-items: center; gap: 8px;
+  flex: 1; min-width: 0;
+  background: none; border: none; padding: 0;
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.recap-row-open:hover .recap-row-name { color: var(--primary); }
+
+/* ============================================================================
    FAILED-WRITE BANNER. Sits under the header until resolved - a transient
    toast is too easy to miss while scoring a whole episode.
    ============================================================================ */

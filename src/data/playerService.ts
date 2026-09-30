@@ -18,6 +18,26 @@ import {
 
 export type { Player, ScoringCategory, ScoringCategoryId, PlayerStatus }
 
+export interface PlayerDetail {
+  player: Player
+  managerName: string
+  total: number
+  episodes: Array<{
+    episode: number
+    delta: number
+    /** Running season total through the end of this episode. */
+    total: number
+    breakdown: Array<{
+      categoryId: ScoringCategoryId
+      label: string
+      group: string
+      count: number
+      points: number
+    }>
+  }>
+  best: { episode: number; delta: number }
+}
+
 export interface Manager {
   name: string
   players: Player[]
@@ -337,6 +357,54 @@ export class PlayerService {
     return this.getScoredEpisodes()
       .map(episode => ({ episode, delta: this.getPlayerEpisodeTotal(playerId, episode) }))
       .filter(h => h.delta !== 0)
+  }
+
+  /**
+   * The full story for one castaway: season total, every episode's swing
+   * (including silent weeks so gaps are visible), and a running total. Backs
+   * the player detail sheet, which is reachable from anywhere in the UI.
+   */
+  getPlayerDetail(playerId: number): PlayerDetail | null {
+    const player = this.getPlayerById(playerId)
+    if (!player) return null
+
+    // Every episode we know about, so a quiet week shows as a flat entry
+    // rather than vanishing and making the trend look smoother than it was.
+    const episodes = this.getScoredEpisodes()
+    let running = 0
+    const rows: PlayerDetail['episodes'] = episodes.map(episode => {
+      const delta = this.getPlayerEpisodeTotal(playerId, episode)
+      // Break the episode down into the events that produced the points.
+      const breakdown = SCORING_CATEGORIES
+        .filter(cat => this.getEventValue(playerId, episode, cat.id) > 0)
+        .map(cat => ({
+          categoryId: cat.id,
+          label: cat.label,
+          group: cat.group,
+          count: this.getEventValue(playerId, episode, cat.id),
+          points: cat.points * this.getEventValue(playerId, episode, cat.id),
+        }))
+      const override = this.getOverride(playerId, episode)
+      if (override !== 0) {
+        breakdown.push({
+          categoryId: 'medical_evac' as ScoringCategoryId,
+          label: 'Commissioner adjustment',
+          group: 'Advantage',
+          count: 1,
+          points: override,
+        })
+      }
+      running += delta
+      return { episode, delta, total: running, breakdown }
+    })
+
+    return {
+      player,
+      total: this.getPlayerTotal(playerId),
+      episodes: rows,
+      best: rows.reduce((m, r) => (r.delta > m.delta ? r : m), rows[0] ?? { episode: 0, delta: 0, total: 0, breakdown: [] }),
+      managerName: player.managerName,
+    }
   }
 
   /**

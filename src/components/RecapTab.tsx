@@ -9,6 +9,8 @@ interface RecapTabProps {
   onEpisodeChange: (n: number) => void
   canEdit: boolean
   onSaveNote: (episode: number, note: string) => void
+  /** Open the shared player detail sheet. */
+  onInspect: (playerId: number) => void
   /**
    * Mutation counter from App. The service instance is stable, so React cannot
    * see that its internal event list changed; this is the invalidation key.
@@ -22,7 +24,7 @@ interface RecapTabProps {
  * scored events, so this can never disagree with the real standings.
  */
 const RecapTab: React.FC<RecapTabProps> = ({
-  service, players, episode, onEpisodeChange, canEdit, onSaveNote, version,
+  service, players, episode, onEpisodeChange, canEdit, onSaveNote, version, onInspect,
 }) => {
   const [draft, setDraft] = useState<string | null>(null)
   const [showAll, setShowAll] = useState(false)
@@ -204,11 +206,18 @@ const RecapTab: React.FC<RecapTabProps> = ({
         <div className="recap-rows">
           {visible.map(row => (
             <div key={row.player.id} className={`recap-row${row.delta === 0 ? ' is-flat' : ''}`}>
-              <img src={row.player.photo} alt="" />
-              <div className="recap-row-id">
-                <div className="recap-row-name">{row.player.name}</div>
-                <div className="recap-row-mgr">{row.player.managerName}</div>
-              </div>
+              <button
+                type="button"
+                className="recap-row-open"
+                onClick={() => onInspect(row.player.id)}
+                aria-label={`See ${row.player.name}'s points history`}
+              >
+                <img src={row.player.photo} alt="" />
+                <div className="recap-row-id">
+                  <div className="recap-row-name">{row.player.name}</div>
+                  <div className="recap-row-mgr">{row.player.managerName}</div>
+                </div>
+              </button>
               <Sparkline values={row.history} />
               <div className="recap-row-total">{row.total}</div>
               <div className={`recap-delta${row.delta < 0 ? ' neg' : row.delta === 0 ? ' flat' : ' pos'}`}>
