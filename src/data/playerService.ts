@@ -1,5 +1,6 @@
 import { PLAYERS, type Player } from './players'
 import { PLAYER_TRIBES, TRIBES, type Tribe, type TribeId } from './tribes'
+import { SEED_EVENTS, SEED_EPISODES, seedFlagKey } from './episodeScores'
 import { payoutFor } from './predictions'
 import { reportFailedWrite } from './storage'
 import {
@@ -17,6 +18,12 @@ import {
 } from './storage'
 
 export type { Player, ScoringCategory, ScoringCategoryId, PlayerStatus }
+
+// Per-episode seed-applied flags live in the meta bag (see seedFlagKey in
+// episodeScores.ts). Once an episode's flag is set, its seed is never
+// re-injected, so a commissioner who later toggles a seeded event off keeps
+// that change across reloads. New episodes are seeded independently on their
+// own first load.
 
 export interface PlayerDetail {
   player: Player
@@ -132,6 +139,13 @@ export class PlayerService {
       this.overrides   = snap.overrides
       this.predictions = snap.predictions
       this.meta        = snap.meta
+
+      // First local run: bake the historical episode scores into real state,
+      // one episode at a time. Remote leagues are seeded server-side by
+      // POST /api/admin/init instead.
+      if (!this.isRemote()) {
+        this.applyEpisodeSeed()
+      }
     } catch (err) {
       console.error('[PlayerService] hydrate failed:', err)
     }
@@ -296,6 +310,39 @@ export class PlayerService {
   toggleEvent(playerId: number, episode: number, categoryId: ScoringCategoryId): void {
     const cur = this.getEventValue(playerId, episode, categoryId)
     this.setEventCount(playerId, episode, categoryId, cur > 0 ? 0 : 1)
+  }
+
+  /**
+   * Bake the historical episode scores into real, mutable state on the local
+   * backend, one episode at a time. Uses the normal setEventCount write path,
+   * so each seed lands in localStorage exactly like a hand-entered score and
+   * can be toggled off or deleted afterwards with no special-casing.
+   *
+   * Each episode is guarded by its own meta flag so it seeds only once:
+   * without it, a commissioner who cleared a seeded event would see it
+   * reappear on the next reload, which would look like the toggle silently
+   * failed. Per-episode flags mean adding a new episode to episodeScores.ts
+   * seeds it on the next load without touching already-scored weeks. Remote
+   * leagues never call this - they are seeded by POST /api/admin/init.
+   */
+  private applyEpisodeSeed(): void {
+    for (const ep of SEED_EPISODES) {
+      const flagKey = seedFlagKey(ep.episode)
+      if (this.meta[flagKey] === '1') continue
+
+      // Only fill gaps; never overwrite an event that already exists (e.g. a
+      // partially-entered state) so the seed can't clobber manual edits.
+      for (const seed of SEED_EVENTS) {
+        if (seed.episode !== ep.episode) continue
+        if (this.getEventValue(seed.playerId, seed.episode, seed.categoryId) === 0) {
+          this.setEventCount(seed.playerId, seed.episode, seed.categoryId, seed.count)
+        }
+      }
+
+      this.meta = { ...this.meta, [flagKey]: '1' }
+      void this.backend.setMeta(flagKey, '1')
+        .catch(err => console.error('[PlayerService] seed flag write failed:', err))
+    }
   }
 
   // -------- Player status ----------------------------------------------------

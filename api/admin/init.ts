@@ -19,6 +19,7 @@ import { SCHEMA_STATEMENTS } from '../schema.js'
 import { PLAYERS } from '../../src/data/players.js'
 import { SCORING_CATEGORIES } from '../../src/data/scoringRules.js'
 import { PLAYER_TRIBES, TRIBES } from '../../src/data/tribes.js'
+import { SEED_EVENTS } from '../../src/data/episodeScores.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   applyCors(res, 'POST, OPTIONS')
@@ -106,6 +107,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (exists) updated++; else inserted++
     }
 
+    // 5. Historical episode scoring (see src/data/episodeScores.ts). These
+    //    are scores for episodes that already aired, seeded so a fresh league
+    //    reflects them. ON CONFLICT DO NOTHING keeps re-runs safe: a score the
+    //    commissioner has since edited or cleared is left untouched, mirroring
+    //    how player status is never overwritten above.
+    let eventsSeeded = 0
+    for (const e of SEED_EVENTS) {
+      const res = await sql`
+        INSERT INTO episode_events (player_id, episode, category_id, count, updated_at)
+        VALUES (${e.playerId}, ${e.episode}, ${e.categoryId}, ${e.count}, NOW())
+        ON CONFLICT (player_id, episode, category_id) DO NOTHING
+      `
+      eventsSeeded += res.rowCount ?? 0
+    }
+
     res.status(200).json({
       ok: true,
       tribes: TRIBES.length,
@@ -113,6 +129,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       categories: SCORING_CATEGORIES.length,
       playersInserted: inserted,
       playersUpdated: updated,
+      episodeEventsSeeded: eventsSeeded,
     })
   } catch (err) {
     handleError(res, err)
