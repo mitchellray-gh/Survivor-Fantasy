@@ -1,6 +1,6 @@
 import { PLAYERS, type Player } from './players'
 import { PLAYER_TRIBES, TRIBES, type Tribe, type TribeId } from './tribes'
-import { SEED_EVENTS, SEED_EPISODES, seedFlagKey } from './episodeScores'
+import { SEED_EVENTS, SEED_EPISODES, SEED_VERSION, seedFlagKey, seedStatuses } from './episodeScores'
 import { payoutFor } from './predictions'
 import { reportFailedWrite } from './storage'
 import {
@@ -20,10 +20,11 @@ import {
 export type { Player, ScoringCategory, ScoringCategoryId, PlayerStatus }
 
 // Per-episode seed-applied flags live in the meta bag (see seedFlagKey in
-// episodeScores.ts). Once an episode's flag is set, its seed is never
+// episodeScores.ts) and their value is the SEED_VERSION that was applied.
+// Once an episode's flag matches the current version, its seed is never
 // re-injected, so a commissioner who later toggles a seeded event off keeps
-// that change across reloads. New episodes are seeded independently on their
-// own first load.
+// that change across reloads. New episodes seed independently, and a bump of
+// SEED_VERSION re-asserts the corrected seed once (see applyEpisodeSeed).
 
 export interface PlayerDetail {
   player: Player
@@ -318,30 +319,65 @@ export class PlayerService {
    * so each seed lands in localStorage exactly like a hand-entered score and
    * can be toggled off or deleted afterwards with no special-casing.
    *
-   * Each episode is guarded by its own meta flag so it seeds only once:
-   * without it, a commissioner who cleared a seeded event would see it
-   * reappear on the next reload, which would look like the toggle silently
-   * failed. Per-episode flags mean adding a new episode to episodeScores.ts
-   * seeds it on the next load without touching already-scored weeks. Remote
+   * Each episode is guarded by its own meta flag, whose value is the
+   * SEED_VERSION applied. At the current version the pass is fill-gaps only,
+   * so it never clobbers manual edits. When SEED_VERSION is bumped (the seed
+   * data itself was corrected), the pass re-asserts the seed once over its
+   * domain - survival membership plus every category the episode scores -
+   * clearing cells the seed no longer claims and filling missing ones. Remote
    * leagues never call this - they are seeded by POST /api/admin/init.
    */
   private applyEpisodeSeed(): void {
+    const version = String(SEED_VERSION)
+    const resync = this.meta['seed_version'] !== version
+
     for (const ep of SEED_EPISODES) {
       const flagKey = seedFlagKey(ep.episode)
-      if (this.meta[flagKey] === '1') continue
+      if (this.meta[flagKey] === version) continue
 
-      // Only fill gaps; never overwrite an event that already exists (e.g. a
-      // partially-entered state) so the seed can't clobber manual edits.
-      for (const seed of SEED_EVENTS) {
-        if (seed.episode !== ep.episode) continue
-        if (this.getEventValue(seed.playerId, seed.episode, seed.categoryId) === 0) {
-          this.setEventCount(seed.playerId, seed.episode, seed.categoryId, seed.count)
+      const epSeeds = SEED_EVENTS.filter(s => s.episode === ep.episode)
+
+      if (resync) {
+        // Version bump: re-assert the seed over its domain. Survival is always
+        // in the domain (boots change its membership); the rest are the
+        // categories this episode actually scores. Cells outside the domain -
+        // e.g. a manual entry in another category - are left alone.
+        const domain = new Set<ScoringCategoryId>(['survived_tribal', ...epSeeds.map(s => s.categoryId)])
+        for (const p of this.players) {
+          for (const cat of domain) {
+            const want = epSeeds.find(s => s.playerId === p.id && s.categoryId === cat)?.count ?? 0
+            const have = this.getEventValue(p.id, ep.episode, cat)
+            if (want !== have) this.setEventCount(p.id, ep.episode, cat, want)
+          }
+        }
+      } else {
+        // Only fill gaps; never overwrite an event that already exists (e.g. a
+        // partially-entered state) so the seed can't clobber manual edits.
+        for (const seed of epSeeds) {
+          if (this.getEventValue(seed.playerId, seed.episode, seed.categoryId) === 0) {
+            this.setEventCount(seed.playerId, seed.episode, seed.categoryId, seed.count)
+          }
         }
       }
 
-      this.meta = { ...this.meta, [flagKey]: '1' }
-      void this.backend.setMeta(flagKey, '1')
+      this.meta = { ...this.meta, [flagKey]: version }
+      void this.backend.setMeta(flagKey, version)
         .catch(err => console.error('[PlayerService] seed flag write failed:', err))
+    }
+
+    // Statuses from the exit record (voted_out / quit), applied on a version
+    // bump only and only for castaways still marked active - once seeded (or
+    // set by hand), status belongs to the admin drawer as usual.
+    if (resync) {
+      for (const [playerId, status] of seedStatuses()) {
+        const p = this.getPlayerById(playerId)
+        if (p && (p.status == null || p.status === 'active')) {
+          this.setPlayerStatus(playerId, status)
+        }
+      }
+      this.meta = { ...this.meta, seed_version: version }
+      void this.backend.setMeta('seed_version', version)
+        .catch(err => console.error('[PlayerService] seed version write failed:', err))
     }
   }
 

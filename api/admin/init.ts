@@ -8,8 +8,10 @@
 // rows that shouldn't be trampled, and ON CONFLICT DO UPDATE for reference
 // data (name / photo / points) that should stay in sync with the code.
 //
-// Player `status` is NEVER overwritten by re-running init, so mid-season
-// re-seeds won't accidentally revive voted-out castaways.
+// Player `status` is never overwritten by an ordinary re-run of init, so
+// mid-season re-seeds won't accidentally revive voted-out castaways. The one
+// exception is a SEED_VERSION resync (see step 5): statuses move active ->
+// their recorded exit (voted_out / quit) exactly once per seed version.
 
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import {
@@ -19,7 +21,7 @@ import { SCHEMA_STATEMENTS } from '../schema.js'
 import { PLAYERS } from '../../src/data/players.js'
 import { SCORING_CATEGORIES } from '../../src/data/scoringRules.js'
 import { PLAYER_TRIBES, TRIBES } from '../../src/data/tribes.js'
-import { SEED_EVENTS } from '../../src/data/episodeScores.js'
+import { SEED_EVENTS, SEED_EPISODES, SEED_VERSION, seedStatuses } from '../../src/data/episodeScores.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   applyCors(res, 'POST, OPTIONS')
@@ -112,6 +114,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     //    reflects them. ON CONFLICT DO NOTHING keeps re-runs safe: a score the
     //    commissioner has since edited or cleared is left untouched, mirroring
     //    how player status is never overwritten above.
+    //
+    //    Exception: when SEED_VERSION has moved (the reference seed itself was
+    //    corrected), we first DELETE cells the seed no longer claims - only
+    //    within the seed's domain (survival + the episode's scored categories)
+    //    - then upsert, and upgrade statuses for players still 'active'. One
+    //    resync per version bump; afterwards re-runs are back to fill-gaps.
+    const verRow = await sql`SELECT value FROM meta WHERE key = 'seed_version'`
+    const resync = (verRow.rows?.[0]?.value ?? '') !== String(SEED_VERSION)
+    let staleDeleted = 0
+
+    if (resync) {
+      for (const ep of SEED_EPISODES) {
+        const epSeeds = SEED_EVENTS.filter(s => s.episode === ep.episode)
+        const domain = new Set<string>(['survived_tribal', ...epSeeds.map(s => s.categoryId)])
+        for (const cat of domain) {
+          const keep = new Set(epSeeds.filter(s => s.categoryId === cat).map(s => s.playerId))
+          for (const p of PLAYERS) {
+            if (keep.has(p.id)) continue
+            const del = await sql`
+              DELETE FROM episode_events
+               WHERE player_id = ${p.id} AND episode = ${ep.episode}
+                 AND category_id = ${cat}
+            `
+            staleDeleted += del.rowCount ?? 0
+          }
+        }
+      }
+
+      // Status from the exit record - only ever active -> out, so a status the
+      // commissioner set by hand (e.g. medevac) is never overwritten.
+      for (const [playerId, status] of seedStatuses()) {
+        await sql`
+          UPDATE players SET status = ${status}, updated_at = NOW()
+           WHERE id = ${playerId} AND status = 'active'
+        `
+      }
+    }
+
     let eventsSeeded = 0
     for (const e of SEED_EVENTS) {
       const res = await sql`
@@ -122,6 +162,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       eventsSeeded += res.rowCount ?? 0
     }
 
+    // Record the seed version so the next init only fill-gaps again. During a
+    // resync this also re-asserts seed cells a commissioner had toggled off
+    // (they are missing rows, so the upsert above re-inserts them) - the seed
+    // is authoritative exactly once per version bump.
+    if (resync) {
+      await sql`
+        INSERT INTO meta(key, value) VALUES ('seed_version', ${String(SEED_VERSION)})
+        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+      `
+    }
+
     res.status(200).json({
       ok: true,
       tribes: TRIBES.length,
@@ -130,6 +181,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       playersInserted: inserted,
       playersUpdated: updated,
       episodeEventsSeeded: eventsSeeded,
+      seedVersion: SEED_VERSION,
+      seedResynced: resync,
+      staleEventsDeleted: staleDeleted,
     })
   } catch (err) {
     handleError(res, err)
