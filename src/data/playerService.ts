@@ -1,6 +1,6 @@
 import { PLAYERS, type Player } from './players'
 import { PLAYER_TRIBES, TRIBES, type Tribe, type TribeId } from './tribes'
-import { SEED_EVENTS, SEED_EPISODES, SEED_VERSION, seedFlagKey, seedStatuses } from './episodeScores'
+import { SEED_EVENTS, SEED_EPISODES, SEED_VERSION, seedFlagKey, seedStatuses, suggestedCurrentEpisode } from './episodeScores'
 import { payoutFor } from './predictions'
 import { reportFailedWrite } from './storage'
 import {
@@ -379,6 +379,13 @@ export class PlayerService {
       void this.backend.setMeta('seed_version', version)
         .catch(err => console.error('[PlayerService] seed version write failed:', err))
     }
+
+    // The league can't still be on episode 1 once N episodes of results are
+    // baked in. Advance current_episode if it trails the seeded history; it
+    // never moves backwards, so a commissioner who set it higher is respected.
+    const storedEp = this.getCurrentEpisode()
+    const targetEp = suggestedCurrentEpisode(storedEp)
+    if (targetEp !== storedEp) this.setCurrentEpisode(targetEp)
   }
 
   // -------- Player status ----------------------------------------------------

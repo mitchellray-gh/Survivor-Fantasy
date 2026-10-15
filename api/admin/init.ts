@@ -21,7 +21,7 @@ import { SCHEMA_STATEMENTS } from '../schema.js'
 import { PLAYERS } from '../../src/data/players.js'
 import { SCORING_CATEGORIES } from '../../src/data/scoringRules.js'
 import { PLAYER_TRIBES, TRIBES } from '../../src/data/tribes.js'
-import { SEED_EVENTS, SEED_EPISODES, SEED_VERSION, seedStatuses } from '../../src/data/episodeScores.js'
+import { SEED_EVENTS, SEED_EPISODES, SEED_VERSION, seedStatuses, suggestedCurrentEpisode } from '../../src/data/episodeScores.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   applyCors(res, 'POST, OPTIONS')
@@ -169,6 +169,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (resync) {
       await sql`
         INSERT INTO meta(key, value) VALUES ('seed_version', ${String(SEED_VERSION)})
+        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+      `
+    }
+
+    // 6. The league can't trail the baked-in results: advance current_episode
+    //    to maxSeeded + 1 when it's behind. Never moves a higher value the
+    //    commissioner set backwards.
+    const curRow = await sql`SELECT value FROM meta WHERE key = 'current_episode'`
+    const rawCur = Number(curRow.rows?.[0]?.value)
+    const storedEp = Number.isFinite(rawCur) && rawCur >= 1 ? Math.floor(rawCur) : 1
+    const targetEp = suggestedCurrentEpisode(storedEp)
+    if (targetEp !== storedEp) {
+      await sql`
+        INSERT INTO meta(key, value) VALUES ('current_episode', ${String(targetEp)})
         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
       `
     }

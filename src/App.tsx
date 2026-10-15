@@ -227,6 +227,10 @@ function App() {
   // The episode the league is officially on, and whether the tab you're looking
   // at has drifted from it.
   const leagueEpisode = hydrated ? service.getCurrentEpisode() : 1
+  // Hero note: the premiere blurb only applies before anything has aired -
+  // once episodes are scored it reports how far the league has actually got.
+  const scoredEpisodes = hydrated ? service.getScoredEpisodes() : []
+  const maxScoredEpisode = scoredEpisodes.length > 0 ? scoredEpisodes[scoredEpisodes.length - 1] : 0
   const activeTabEpisode =
     activeTab === 'scoring' ? scoringEpisode
     : activeTab === 'predictions' ? predictionEpisode
@@ -292,7 +296,11 @@ function App() {
               onInspect={setInspectPlayer}
             />
 
-            <div className="hero-note">Season 51 premieres Wed Sept 23, 2026 on CBS &amp; Paramount+.</div>
+            <div className="hero-note">
+              {maxScoredEpisode === 0
+                ? 'Season 51 premieres Wed Sept 23, 2026 on CBS & Paramount+.'
+                : `Season 51 on CBS & Paramount+ \u2014 scoring is up to date through Episode ${maxScoredEpisode}, currently on Episode ${leagueEpisode}.`}
+            </div>
 
             <div className="list-card">
               {standings.map((s, i) => {

@@ -103,6 +103,16 @@ export const SEED_EPISODES: SeedEpisode[] = [
  */
 export const SEED_VERSION = 2
 
+/**
+ * The league's current episode must never trail the seeded results: once
+ * episode N's results are baked in, the league is at least on N+1 - the next
+ * one to predict and score. A higher number the commissioner set is kept.
+ */
+export function suggestedCurrentEpisode(stored: number): number {
+  const maxSeeded = Math.max(...SEED_EPISODES.map(e => e.episode))
+  return Math.max(stored, maxSeeded + 1)
+}
+
 /** meta key marking that an episode's seed has been applied to a backend.
  *  The value is the SEED_VERSION that was applied, not just '1'. */
 export function seedFlagKey(episode: number): string {
