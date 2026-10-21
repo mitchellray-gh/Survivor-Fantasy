@@ -58,6 +58,7 @@ export const SEASON_EXITS: SeasonExit[] = [
   { playerId: 4,  episode: 2, kind: 'voted_out' }, // Ana Sani - 2nd out (Day 5)
   { playerId: 20, episode: 3, kind: 'quit' },      // Rob Antonson - left the game (Day 6, foot infection)
   { playerId: 19, episode: 3, kind: 'voted_out' }, // Patt Cannaday - 3rd out (Day 7, "Five" blindside)
+  { playerId: 12, episode: 4, kind: 'voted_out' }, // Jenna Doore - 4th out / 5th overall to leave (Ep 4, "That's the Magic of Survivor")
 ]
 
 /** One aired episode, described in show terms. Survival is derived, not listed. */
@@ -94,6 +95,18 @@ export const SEED_EPISODES: SeedEpisode[] = [
     firstToCry: 12, // Jenna Doore
     bleeped: [10],  // Devin Way
   },
+  {
+    // Episode 4: tribe swap into Savu / Toka / Dina; Jenna voted out 4-1 at
+    // Savu's Tribal Council (see SEASON_EXITS). Dina won immunity + coffee
+    // reward - challenge winners are the post-swap Dina roster, which isn't
+    // tracked in this repo yet (tribes.ts still holds the original savu/toka/
+    // exile split). Fill in challengeWinners once the Dina roster is known.
+    episode: 4,
+    challengeWinners: [], // TODO: Dina tribe members post-swap - +2 each
+    idolFinder: null,
+    firstToCry: null,
+    bleeped: [],
+  },
 ]
 
 /**
@@ -101,7 +114,7 @@ export const SEED_EPISODES: SeedEpisode[] = [
  * changes so stores seeded at an older version pick up the correction exactly
  * once (see applyEpisodeSeed / api/admin/init).
  */
-export const SEED_VERSION = 2
+export const SEED_VERSION = 3
 
 /**
  * The league's current episode must never trail the seeded results: once
