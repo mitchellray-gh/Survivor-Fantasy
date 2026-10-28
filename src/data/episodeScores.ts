@@ -59,6 +59,8 @@ export const SEASON_EXITS: SeasonExit[] = [
   { playerId: 20, episode: 3, kind: 'quit' },      // Rob Antonson - left the game (Day 6, foot infection)
   { playerId: 19, episode: 3, kind: 'voted_out' }, // Patt Cannaday - 3rd out (Day 7, "Five" blindside)
   { playerId: 12, episode: 4, kind: 'voted_out' }, // Jenna Doore - 4th out / 5th overall to leave (Ep 4, "That's the Magic of Survivor")
+  { playerId: 2,  episode: 5, kind: 'voted_out' }, // Alexis Levine - 5th out (Ep 5, voted out at Savu Tribal 4-1)
+  { playerId: 15, episode: 5, kind: 'voted_out' }, // Linnea Capobianco - 6th out (Ep 5, voted out at Savu Tribal 4-1)
 ]
 
 /** One aired episode, described in show terms. Survival is derived, not listed. */
@@ -107,6 +109,20 @@ export const SEED_EPISODES: SeedEpisode[] = [
     firstToCry: null,
     bleeped: [],
   },
+  {
+    // Episode 5: Alexis and Linnea voted out at Savu's Tribal (4-1). Toka won
+    // the buoy immunity challenge (+2 each). Maggie found an Extra Votes
+    // advantage (+4). Lewis and Kilby got Extra Votes too but the +5 bonus is
+    // reserved for HID/SITD, so they score 0. No tears, bleeps, quits, or
+    // medevacs this episode.
+    // NOTE: post-swap Toka roster uses surviving original Toka members; verify
+    // against the broadcast if the swap reshuffled them.
+    episode: 5,
+    challengeWinners: [5, 6, 9, 10, 16, 17], // Toka: Jelly, Brady, Kilby, Devin, Maggie, Mike
+    idolFinder: 16,    // Maggie Nestor - Extra Votes advantage
+    firstToCry: null,
+    bleeped: [],
+  },
 ]
 
 /**
@@ -114,7 +130,7 @@ export const SEED_EPISODES: SeedEpisode[] = [
  * changes so stores seeded at an older version pick up the correction exactly
  * once (see applyEpisodeSeed / api/admin/init).
  */
-export const SEED_VERSION = 3
+export const SEED_VERSION = 5
 
 /**
  * The league's current episode must never trail the seeded results: once

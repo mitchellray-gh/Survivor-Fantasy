@@ -35,6 +35,13 @@ export interface Market {
  */
 export const MARKETS: Market[] = [
   {
+    id: 'voted_out',
+    ticker: 'VOUT',
+    question: 'Who gets voted out at Tribal Council?',
+    howItSettles: 'Correct if your pick is the person voted out.',
+    implied: 'The simplest bet on the board.',
+  },
+  {
     id: 'individual_immunity',
     ticker: 'IMM',
     question: 'Who takes Individual Immunity?',
@@ -76,9 +83,13 @@ export function payoutFor(marketId: ScoringCategoryId, stake: number): number {
   return Math.round(stake * multiplierFor(marketId))
 }
 
+/** League points awarded for a correct voted-out prediction. Fixed at 20. */
+export const VOTED_OUT_POINTS = 20
+
 /** How many chips a correct pick returns per chip staked. */
 export function multiplierFor(marketId: ScoringCategoryId): number {
   switch (marketId) {
+    case 'voted_out': return 1
     case 'individual_immunity':      return 3
     case 'individual_reward':        return 4
     case 'found_idol_or_advantage':  return 5

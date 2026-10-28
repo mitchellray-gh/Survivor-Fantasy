@@ -15,6 +15,7 @@ export type ScoringCategoryId =
   | 'played_idol_successfully'
   | 'played_shot_in_dark'
   | 'voted_out_with_idol'
+  | 'voted_out'            // prediction market only - not a scoring category
   | 'first_to_cry'
   | 'bleeped_swearing'
   | 'medical_evac'
@@ -48,6 +49,8 @@ export const SCORING_CATEGORIES: ScoringCategory[] = [
   { id: 'bleeped_swearing',        group: 'Social & Drama', label: 'Getting bleeped for swearing',        points:  1 },
   { id: 'medical_evac',            group: 'Social & Drama', label: 'Medical Evacuation',                  points: -3 },
   { id: 'quit',                    group: 'Social & Drama', label: 'Quitting the game',                   points: -10 },
+  // Prediction market (not a scoring category - payout handled separately)
+  { id: 'voted_out',               group: 'Social & Drama', label: 'Who will be voted out next episode',  points:  0 },
 ]
 
 export interface EpisodeScore {
